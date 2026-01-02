@@ -1,4 +1,4 @@
-const CARD_VERSION = '1.0.0';
+const CARD_VERSION = '1.0.1';
 
 console.info(
   `%c  MODERN-SOLAR-FLOW-CARD  \n%c  Version ${CARD_VERSION}    `,
@@ -29,6 +29,7 @@ class ModernSolarFlowCard extends HTMLElement {
       wp_label: 'WP',
       invert_grid: false,
       invert_battery: false,
+      show_daily_stats: true,
       ...config
     };
   }
@@ -178,13 +179,15 @@ class ModernSolarFlowCard extends HTMLElement {
       --ms-color-wp: #ff9800;
     `;
 
+    const isDailyVisible = config.show_daily_stats !== false;
+
     this.content.innerHTML = `
       <style>
         .solar-root {
           ${styleVars}
           position: relative;
           isolation: isolate;
-          height: 540px;
+          height: ${isDailyVisible ? '540px' : '440px'};
           background: var(--ms-bg);
           border: var(--ms-card-border);
           border-radius: 20px;
@@ -194,6 +197,7 @@ class ModernSolarFlowCard extends HTMLElement {
           flex-direction: column;
           font-family: 'Roboto', sans-serif;
           box-sizing: border-box;
+          transition: height 0.3s ease;
         }
         .diagram-area { position: relative; flex-grow: 1; width: 100%; }
         .price-badge {
@@ -271,6 +275,7 @@ class ModernSolarFlowCard extends HTMLElement {
             <div class="label">${config.wp_label}</div>
           </div>` : ''}
         </div>
+        ${isDailyVisible ? `
         <div class="stats-footer">
           <div class="stat-block">
             <div class="chart-wrap">${mkRing(pSolarSelf, 'var(--ms-color-solar)', 'var(--ms-color-orange)')}</div>
@@ -288,7 +293,7 @@ class ModernSolarFlowCard extends HTMLElement {
               <div class="stat-sub"><span class="dot" style="background:var(--ms-color-red)"></span>${(100 - pConsPV).toFixed(0)}% Netz</div>
             </div>
           </div>
-        </div>
+        </div>` : ''}
       </div>
     `;
     this._drawPaths();
@@ -337,12 +342,17 @@ class ModernSolarFlowCard extends HTMLElement {
   }
 
   static getConfigElement() { return document.createElement('modern-solar-flow-card-editor'); }
-  static getStubConfig() { return { solar_label: 'Solar', grid_label: 'Netz', home_label: 'Haus', battery_label: 'Akku', wp_label: 'WP' }; }
+  static getStubConfig() { return { solar_label: 'Solar', grid_label: 'Netz', home_label: 'Haus', battery_label: 'Akku', wp_label: 'WP', show_daily_stats: true }; }
 }
 
 class ModernSolarFlowCardEditor extends HTMLElement {
   setConfig(config) { this._config = config; this.render(); }
-  set hass(hass) { this._hass = hass; }
+  set hass(hass) { 
+    this._hass = hass;
+    // Important: pass hass to form initially if we have it
+    const form = this.querySelector('ha-form');
+    if (form) form.hass = hass;
+  }
   render() {
     if (this.innerHTML) return;
     const form = document.createElement('ha-form');
@@ -355,11 +365,14 @@ class ModernSolarFlowCardEditor extends HTMLElement {
       { name: "battery_entity", label: "Batterie Ladestand (%)", selector: { entity: { domain: "sensor" } } },
       { name: "wp_entity", label: "Wärmepumpe/Zusatzlast (Optional)", selector: { entity: { domain: ["binary_sensor", "sensor"] } } },
       { name: "price_entity", label: "Strompreis (Optional)", selector: { entity: { domain: "sensor" } } },
+      
       { name: "", type: "section", header: "Tageswerte (kWh)" },
+      { name: "show_daily_stats", label: "Tageswerte anzeigen?", selector: { boolean: {} } },
       { name: "solar_daily_entity", label: "Solar Tagesertrag", selector: { entity: { domain: "sensor" } } },
       { name: "grid_daily_entity", label: "Netz Einspeisung Tag", selector: { entity: { domain: "sensor" } } },
       { name: "consumption_daily_entity", label: "Gesamtverbrauch Tag", selector: { entity: { domain: "sensor" } } },
       { name: "self_daily_entity", label: "Eigenverbrauch Tag", selector: { entity: { domain: "sensor" } } },
+      
       { name: "", type: "section", header: "Beschriftungen" },
       { name: "solar_label", label: "Label Solar", selector: { text: {} } },
       { name: "grid_label", label: "Label Netz", selector: { text: {} } },
@@ -368,6 +381,8 @@ class ModernSolarFlowCardEditor extends HTMLElement {
       { name: "wp_label", label: "Label Zusatzlast", selector: { text: {} } },
     ];
     form.data = this._config;
+    // Important: pass hass to form initially if we have it
+    if (this._hass) form.hass = this._hass;
     form.computeLabel = (s) => s.label;
     form.addEventListener('value-changed', (ev) => {
       const event = new Event("config-changed", { bubbles: true, composed: true });
