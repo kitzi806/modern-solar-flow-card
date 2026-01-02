@@ -1,4 +1,4 @@
-const CARD_VERSION = '1.0.1';
+const CARD_VERSION = '1.0.2';
 
 console.info(
   `%c  MODERN-SOLAR-FLOW-CARD  \n%c  Version ${CARD_VERSION}    `,
@@ -73,7 +73,14 @@ class ModernSolarFlowCard extends HTMLElement {
     if (config.invert_battery) battPower *= -1; 
 
     const battSoc = getVal(config.battery_entity);
-    const homeVal = solarVal + gridVal + battPower; 
+    
+    // Home Calculation
+    let homeVal = 0;
+    if (config.home_entity) {
+      homeVal = getVal(config.home_entity);
+    } else {
+      homeVal = solarVal + gridVal + battPower; 
+    }
 
     const dSolar = getVal(config.solar_daily_entity);
     const dGrid = getVal(config.grid_daily_entity);
@@ -349,7 +356,6 @@ class ModernSolarFlowCardEditor extends HTMLElement {
   setConfig(config) { this._config = config; this.render(); }
   set hass(hass) { 
     this._hass = hass;
-    // Important: pass hass to form initially if we have it
     const form = this.querySelector('ha-form');
     if (form) form.hass = hass;
   }
@@ -359,6 +365,7 @@ class ModernSolarFlowCardEditor extends HTMLElement {
     form.schema = [
       { name: "solar_entity", label: "Solar Leistung (W)", selector: { entity: { domain: "sensor" } } },
       { name: "grid_entity", label: "Netz Leistung (W)", selector: { entity: { domain: "sensor" } } },
+      { name: "home_entity", label: "Hausverbrauch Leistung (W) [Optional]", selector: { entity: { domain: "sensor" } } },
       { name: "invert_grid", label: "Netz invertieren (Export ist positiv)", selector: { boolean: {} } },
       { name: "battery_power_entity", label: "Batterie Leistung (W)", selector: { entity: { domain: "sensor" } } },
       { name: "invert_battery", label: "Batterie invertieren (Laden ist positiv)", selector: { boolean: {} } },
@@ -381,7 +388,6 @@ class ModernSolarFlowCardEditor extends HTMLElement {
       { name: "wp_label", label: "Label Zusatzlast", selector: { text: {} } },
     ];
     form.data = this._config;
-    // Important: pass hass to form initially if we have it
     if (this._hass) form.hass = this._hass;
     form.computeLabel = (s) => s.label;
     form.addEventListener('value-changed', (ev) => {
