@@ -1,5 +1,9 @@
 # Modern Solar Flow Card
 
+| Light Mode | Dark Mode |
+| --- | --- |
+| ![Light Mode](Screenshot-bright.png) | ![Dark Mode](Screenshot-dark.png) |
+
 A modern, animated power flow card for Home Assistant, inspired by the FusionSolar design. It provides a beautiful visualization of your energy flows (Solar, Battery, Grid, Home, and an optional Heat Pump/Extra Load).
 
 ## Features
