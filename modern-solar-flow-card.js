@@ -1,4 +1,4 @@
-const CARD_VERSION = '0.3.6';
+const CARD_VERSION = '0.3.7';
 
 console.info(
   `%c  MODERN-SOLAR-FLOW-CARD  \n%c  Version ${CARD_VERSION}    `,
@@ -146,11 +146,17 @@ class ModernSolarFlowCard extends HTMLElement {
     const ent = (eid) => (eid ? hass.states[eid] : null);
     const setText = (id, text) => { const el = this.content.querySelector(id); if (el) el.innerHTML = text; };
     
-    // REDUCED STROKE WIDTH FOR HOME RING
+    // NEW MKRING: ViewBox 100x100 for better stroke control
     const mkRing = (percent, colorMain, colorBg, strokeWidth) => { 
         const p = Math.min(Math.max(percent, 0), 100); 
-        // Radius reduced to 15.5 to avoid cutting off stroke
-        return `<svg viewBox="0 0 36 36" class="donut-chart"><path class="donut-bg" d="M18 2.5 a 15.5 15.5 0 0 1 0 31 a 15.5 15.5 0 0 1 0 -31" stroke="${colorBg}" stroke-width="${strokeWidth}" /><path class="donut-seg" d="M18 2.5 a 15.5 15.5 0 0 1 0 31 a 15.5 15.5 0 0 1 0 -31" stroke="${colorMain}" stroke-width="${strokeWidth}" stroke-dasharray="${p}, 100" /></svg>`; 
+        // 100x100 box. Center 50,50. Radius 45 (to leave padding for stroke).
+        // 2 * PI * 45 = 282.743 (Circumference)
+        const C = 282.743;
+        const dash = (p / 100) * C;
+        return `<svg viewBox="0 0 100 100" class="donut-chart">
+            <path class="donut-bg" d="M50 5 a 45 45 0 0 1 0 90 a 45 45 0 0 1 0 -90" stroke="${colorBg}" stroke-width="${strokeWidth}" fill="none" />
+            <path class="donut-seg" d="M50 5 a 45 45 0 0 1 0 90 a 45 45 0 0 1 0 -90" stroke="${colorMain}" stroke-width="${strokeWidth}" stroke-dasharray="${dash}, ${C}" fill="none" />
+        </svg>`; 
     };
 
     const solarVal = getVal(config.solar_entity); let gridVal = getVal(config.grid_entity); if (config.invert_grid) gridVal *= -1;
@@ -161,7 +167,7 @@ class ModernSolarFlowCard extends HTMLElement {
     const THRESHOLD = 10; const isSolarProducing = solarVal > THRESHOLD; const isGridImport = gridVal > THRESHOLD; const isGridExport = gridVal < -THRESHOLD; const isBattDischarging = battPower > THRESHOLD; const isBattCharging = battPower < -THRESHOLD;
 
     let s_to_h = false, s_to_b = false, s_to_g = false, g_to_h = false, b_to_h = false, g_to_b = false;
-    if (isSolarProducing) { s_to_h = true; if (isBattCharging) s_to_b = true; if (isGridExport) s_to_g = true; }
+    if (isSolarProducing) { s_to_h = true; if (isBattCharging) s_to_b = true; if (isGridExport) s_to_g = true; } 
     if (isGridImport) { g_to_h = true; if (isBattCharging) g_to_b = true; }
     if (isBattDischarging) b_to_h = true;
 
@@ -181,10 +187,10 @@ class ModernSolarFlowCard extends HTMLElement {
     if (homeVal > 0) { 
         const importVal = isGridImport ? gridVal : 0; 
         const autarky = Math.max(0, Math.min(100, ((homeVal - importVal) / homeVal) * 100)); 
-        // Using thinner stroke (2) 
-        homeRing.innerHTML = mkRing(autarky, 'var(--ms-color-solar)', 'var(--ms-color-red)', 2); 
+        // ViewBox 100x100 -> Stroke 3 is effectively 3px
+        homeRing.innerHTML = mkRing(autarky, 'var(--ms-color-solar)', 'var(--ms-color-red)', 3); 
     } 
-    else { homeRing.innerHTML = mkRing(100, 'var(--ms-color-solar)', 'var(--ms-color-solar)', 2); }
+    else { homeRing.innerHTML = mkRing(100, 'var(--ms-color-solar)', 'var(--ms-color-solar)', 3); }
 
     const wpEntity = ent(config.wp_entity);
     if (wpEntity) {
@@ -213,9 +219,12 @@ class ModernSolarFlowCard extends HTMLElement {
         const dSolar = getVal(config.solar_daily_entity); const dGrid = getVal(config.grid_daily_entity); const dSelf = getVal(config.self_daily_entity); const dCons = getVal(config.consumption_daily_entity);
         const pSolarSelf = dSolar > 0 ? (dSelf / dSolar) * 100 : 0; const pConsPV = dCons > 0 ? (dSelf / dCons) * 100 : 0;
         setText('#stat-solar-val', `${dSolar.toFixed(1)} kWh`); setText('#stat-solar-self', `${dSelf.toFixed(1)} Eigen`); setText('#stat-solar-grid', `${(dSolar - dSelf).toFixed(1)} Netz`);
-        this.content.querySelector('#chart-solar').innerHTML = mkRing(pSolarSelf, 'var(--ms-color-solar)', 'var(--ms-color-orange)', 4);
+        // Use old mkRing with small viewbox for footer charts to keep them thick? Or update them too?
+        // Let's keep them thick, they look good there. We define a separate helper or pass stroke.
+        // Actually, the mkRing function above now uses 100x100. We need to pass bigger stroke for footer (e.g. 10).
+        this.content.querySelector('#chart-solar').innerHTML = mkRing(pSolarSelf, 'var(--ms-color-solar)', 'var(--ms-color-orange)', 10);
         setText('#stat-cons-val', `${dCons.toFixed(1)} kWh`); setText('#stat-cons-pv', `${pConsPV.toFixed(0)}% PV`); setText('#stat-cons-grid', `${(100 - pConsPV).toFixed(0)}% Netz`);
-        this.content.querySelector('#chart-cons').innerHTML = mkRing(pConsPV, 'var(--ms-color-blue)', 'var(--ms-color-red)', 4);
+        this.content.querySelector('#chart-cons').innerHTML = mkRing(pConsPV, 'var(--ms-color-blue)', 'var(--ms-color-red)', 10);
     } else footer.classList.add('hidden');
   }
 
