@@ -1,4 +1,4 @@
-const CARD_VERSION = '1.0.6';
+const CARD_VERSION = '1.0.7';
 
 console.info(
   `%c  MODERN-SOLAR-FLOW-CARD  \n%c  Version ${CARD_VERSION}    `,
@@ -122,6 +122,7 @@ class ModernSolarFlowCard extends HTMLElement {
     const isDark = hass.themes?.darkMode ?? false;
     const isDailyVisible = config.show_daily_stats !== false;
 
+    // Tweaked colors for better visibility in Dark Mode
     const styleVars = isDark ? `
       --ms-bg: linear-gradient(180deg, #111827 0%, #000000 100%);
       --ms-card-border: 1px solid #1f2937;
@@ -132,11 +133,11 @@ class ModernSolarFlowCard extends HTMLElement {
       --ms-text-label: #9ca3af;
       --ms-text-unit: #6b7280;
       --ms-path-bg: #374151;
-      --ms-glow: drop-shadow(0 0 3px rgba(74, 222, 128, 0.5));
+      --ms-glow: drop-shadow(0 0 4px rgba(74, 222, 128, 0.6)); /* Stronger Glow */
       --ms-bar-bg: rgba(31, 41, 55, 0.6);
-      --ms-color-solar: #4ade80;
-      --ms-color-red: #f87171;
-      --ms-color-blue: #60a5fa;
+      --ms-color-solar: #4ade80; /* Bright Green */
+      --ms-color-red: #f87171;   /* Bright Red */
+      --ms-color-blue: #60a5fa;  /* Bright Blue */
       --ms-color-orange: #fb8c00;
       --ms-color-wp: #fb8c00;
     ` : `
@@ -211,11 +212,14 @@ class ModernSolarFlowCard extends HTMLElement {
         
         #ms-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; }
         .path-bg { fill: none; stroke: var(--ms-path-bg); stroke-width: 4px; opacity: 0.9; }
-        .path-flow { fill: none; stroke: var(--ms-color-solar); stroke-width: 4px; stroke-dasharray: 12; opacity: 0; filter: var(--ms-glow); transition: stroke 0.3s ease; }
+        .path-flow { fill: none; stroke: var(--ms-color-solar); stroke-width: 4px; stroke-dasharray: 12; opacity: 0; filter: var(--ms-glow); transition: stroke 0.3s ease, opacity 0.3s ease; }
+        
+        /* Ensure specific colors win */
         .path-flow.flow-red { stroke: var(--ms-color-red) !important; }
         .path-flow.flow-green { stroke: var(--ms-color-solar) !important; }
         .path-flow.flow-blue { stroke: var(--ms-color-blue) !important; }
         .path-flow.flow-wp { stroke: var(--ms-color-wp) !important; }
+        
         .active { opacity: 1; animation: dash 1s linear infinite; }
         @keyframes dash { from { stroke-dashoffset: 24; } to { stroke-dashoffset: 0; } }
         
@@ -255,7 +259,7 @@ class ModernSolarFlowCard extends HTMLElement {
     const battSoc = getVal(config.battery_entity);
     let homeVal = config.home_entity ? getVal(config.home_entity) : (solarVal + gridVal + battPower);
 
-    const THRESHOLD = 10;
+    const THRESHOLD = 10; // Keeping 10W, as colors should now be brighter
     const isSolarProducing = solarVal > THRESHOLD;
     const isGridImport = gridVal > THRESHOLD;
     const isGridExport = gridVal < -THRESHOLD;
@@ -263,6 +267,7 @@ class ModernSolarFlowCard extends HTMLElement {
     const isBattCharging = battPower < -THRESHOLD;
 
     let s_to_h = false, s_to_b = false, s_to_g = false, g_to_h = false, b_to_h = false, g_to_b = false, h_to_wp = false;
+    
     if (isSolarProducing) {
         s_to_h = true; 
         if (isBattCharging) s_to_b = true; 
@@ -315,11 +320,11 @@ class ModernSolarFlowCard extends HTMLElement {
         wpEl.classList.remove('hidden'); wpPathBg.classList.remove('hidden'); wpPathFlow.classList.remove('hidden');
         setText('#val-wp', wpStateText); wpEl.classList.toggle('status-wp', isWpRunning);
         let wpLineClass = 'flow-wp';
-        if (h_to_wp) { if (isGridImport) wpLineClass = 'flow-red'; else if (isBattDischarging || isSolarProducing) wpLineClass = 'flow-green'; } 
+        if (h_to_wp) { if (isGridImport) wpLineClass = 'flow-red'; else if (isBattDischarging || isSolarProducing) wpLineClass = 'flow-green'; }
         wpPathFlow.setAttribute('class', `path-flow ${wpLineClass} ${h_to_wp ? 'active' : ''}`);
-    } else { 
-        wpEl.classList.add('hidden'); wpPathBg.classList.add('hidden'); wpPathFlow.classList.add('hidden'); 
-    } 
+    } else {
+        wpEl.classList.add('hidden'); wpPathBg.classList.add('hidden'); wpPathFlow.classList.add('hidden');
+    }
 
     const priceBadge = this.content.querySelector('#ms-price-badge');
     if (config.price_entity) {
