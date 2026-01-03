@@ -1,4 +1,4 @@
-const CARD_VERSION = '1.0.9';
+const CARD_VERSION = '1.1.0';
 
 console.info(
   `%c  MODERN-SOLAR-FLOW-CARD  \n%c  Version ${CARD_VERSION}    `,
@@ -29,6 +29,7 @@ class ModernSolarFlowCard extends HTMLElement {
       wp_label: 'WP',
       invert_grid: false,
       invert_battery: false,
+      invert_wp: false,
       show_daily_stats: true,
       use_home_calc: true, 
       ...config
@@ -232,7 +233,7 @@ class ModernSolarFlowCard extends HTMLElement {
         .stat-main { font-size: 15px; font-weight: 900; color: var(--ms-text-val); }
         .stat-sub { font-size: 10px; color: var(--ms-text-unit); display: flex; align-items: center; gap: 5px; }
         .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
-    `;
+    `
     
     const styleEl = this.content.querySelector('#ms-style');
     if (styleEl && styleEl.innerHTML !== css) {
@@ -276,16 +277,27 @@ class ModernSolarFlowCard extends HTMLElement {
     if (isGridImport) { g_to_h = true; if (isBattCharging) g_to_b = true; }
     if (isBattDischarging) b_to_h = true;
 
+    // WP Logic with Inversion
     const wpEntity = ent(config.wp_entity);
     let wpStateText = 'AUS';
     let isWpRunning = false;
     if (wpEntity) {
       const s = String(wpEntity.state).toLowerCase();
       const n = fnum(wpEntity.state);
-      if (!isNaN(parseFloat(wpEntity.state)) && Number.isFinite(n) && (n > 10 || n < -10)) { wpStateText = `${Math.round(Math.abs(n))} W`; isWpRunning = true; } 
-      else if (['on', 'true', '1', 'running'].includes(s)) { isWpRunning = true; wpStateText = 'EIN'; }
+      const hasPower = !isNaN(parseFloat(wpEntity.state)) && Number.isFinite(n) && (Math.abs(n) > 10);
+      const isOn = ['on', 'true', '1', 'running'].includes(s);
+      
+      isWpRunning = hasPower || isOn;
+      if (config.invert_wp) isWpRunning = !isWpRunning; // Flip it!
+
+      if (isWpRunning) {
+          wpStateText = hasPower ? `${Math.round(Math.abs(n))} W` : 'EIN';
+          h_to_wp = true;
+      } else {
+          wpStateText = 'AUS';
+          h_to_wp = false;
+      }
     }
-    if (isWpRunning) h_to_wp = true;
 
     const setText = (id, text) => { const el = this.content.querySelector(id); if (el) el.innerHTML = text; };
     setText('#val-solar', `${Math.abs(Math.round(solarVal))}<span class="unit">W</span>`);
@@ -313,8 +325,8 @@ class ModernSolarFlowCard extends HTMLElement {
         wpEl.classList.remove('hidden'); wpPathBg.classList.remove('hidden'); wpPathFlow.classList.remove('hidden');
         setText('#val-wp', wpStateText); wpEl.classList.toggle('status-wp', isWpRunning);
         let wpLineClass = 'flow-wp';
-        if (h_to_wp) { if (isGridImport) wpLineClass = 'flow-red'; else if (isBattDischarging || isSolarProducing) wpLineClass = 'flow-green'; }
-        wpPathFlow.setAttribute('class', `path-flow ${wpLineClass} ${h_to_wp ? 'active' : ''}`);
+        if (isWpRunning) { if (isGridImport) wpLineClass = 'flow-red'; else if (isBattDischarging || isSolarProducing) wpLineClass = 'flow-green'; }
+        wpPathFlow.setAttribute('class', `path-flow ${wpLineClass} ${isWpRunning ? 'active' : ''}`);
     } else {
         wpEl.classList.add('hidden'); wpPathBg.classList.add('hidden'); wpPathFlow.classList.add('hidden');
     }
@@ -352,7 +364,7 @@ class ModernSolarFlowCard extends HTMLElement {
     if (!S || !B || !H || !G) return; 
     svg.setAttribute('viewBox', `0 0 ${area.clientWidth} ${area.clientHeight}`);
     const line = (a, b) => `M ${a.x} ${a.y} L ${b.x} ${b.y}`;
-    const curve = (a, b) => { const bend = 0.35; return `M ${a.x} ${a.y} C ${a.x} ${a.y + (b.y - a.y) * bend}, ${b.x} ${a.y + (b.y - a.y) * bend}, ${b.x} ${b.y}`; };
+    const curve = (a, b) => { const bend = 0.35; return `M ${a.x} ${a.y} C ${a.x} ${a.y + (b.y - a.y) * bend}, ${b.x} ${a.y + (b.y - a.y) * bend}, ${b.x} ${b.y}` };
     const updatePath = (id, d) => { const p1 = this.content.querySelector(id.replace('flow', 'bg')); const p2 = this.content.querySelector(id); if (p1) p1.setAttribute('d', d); if (p2) p2.setAttribute('d', d); }
     updatePath('#p-flow-s-h', line(S, H)); updatePath('#p-flow-s-b', curve(S, B)); updatePath('#p-flow-s-g', curve(S, G)); updatePath('#p-flow-b-h', line(B, H)); updatePath('#p-flow-g-h', line(G, H)); updatePath('#p-flow-g-b', line(G, B));
     if (W) updatePath('#p-flow-h-w', line(H, W));
@@ -378,6 +390,7 @@ class ModernSolarFlowCardEditor extends HTMLElement {
       { name: "invert_battery", label: "Batterie invertieren (Laden ist positiv)", selector: { boolean: {} } },
       { name: "battery_entity", label: "Batterie Ladestand (%)", selector: { entity: { domain: "sensor" } } },
       { name: "wp_entity", label: "Wärmepumpe/Zusatzlast (Optional)", selector: { entity: { } } },
+      { name: "invert_wp", label: "Zusatzlast invertieren? (AUS = Aktiv)", selector: { boolean: {} } },
       { name: "price_entity", label: "Strompreis (Optional)", selector: { entity: { domain: "sensor" } } },
       { name: "", type: "section", header: "Tageswerte (kWh)" },
       { name: "show_daily_stats", label: "Tageswerte anzeigen?", selector: { boolean: {} } },
