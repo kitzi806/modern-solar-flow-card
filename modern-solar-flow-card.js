@@ -1,4 +1,4 @@
-const CARD_VERSION = '1.1.3';
+const CARD_VERSION = '1.1.4';
 
 console.info(
   `%c  MODERN-SOLAR-FLOW-CARD  \n%c  Version ${CARD_VERSION}    `,
@@ -76,7 +76,6 @@ class ModernSolarFlowCard extends HTMLElement {
           <div class="label" id="label-batt"></div>
         </div>
         
-        <!-- HOME Circle with Donut Border -->
         <div class="circle c-home" id="ms-home">
           <div class="home-ring-container" id="home-ring"></div>
           <div class="val" id="val-home">--<span class="unit">W</span></div>
@@ -275,7 +274,6 @@ class ModernSolarFlowCard extends HTMLElement {
     if (homeVal > 0) {
         const importVal = isGridImport ? gridVal : 0;
         const autarky = Math.max(0, Math.min(100, ((homeVal - importVal) / homeVal) * 100));
-        // Use thinner stroke (4) for the home ring
         homeRing.innerHTML = mkRing(autarky, 'var(--ms-color-solar)', 'var(--ms-color-red)', 3.5);
     } else {
         homeRing.innerHTML = mkRing(100, 'var(--ms-color-solar)', 'var(--ms-color-solar)', 3.5);
@@ -299,21 +297,6 @@ class ModernSolarFlowCard extends HTMLElement {
         let wpLineClass = 'flow-wp'; if (isWpRunning) { if (isGridImport) wpLineClass = 'flow-red'; else if (isBattDischarging || isSolarProducing) wpLineClass = 'flow-green'; } 
         wpPathFlow.setAttribute('class', `path-flow ${wpLineClass} ${isWpRunning ? 'active' : ''}`);
     } else { wpEl.classList.add('hidden'); wpPathBg.classList.add('hidden'); wpPathFlow.classList.add('hidden'); }
-
-    const setText = (id, text) => { const el = this.content.querySelector(id); if (el) el.innerHTML = text; };
-    setText('#val-solar', `${Math.abs(Math.round(solarVal))}<span class="unit">W</span>`);
-    setText('#val-batt-soc', `${Math.abs(Math.round(battSoc))}<span class="unit">%</span>`);
-    setText('#val-batt-power', `${Math.abs(Math.round(battPower))} W`);
-    setText('#val-home', `${Math.abs(Math.round(homeVal))}<span class="unit">W</span>`);
-    setText('#val-grid', `${Math.abs(Math.round(gridVal))}<span class="unit">W</span>`);
-    setText('#label-solar', config.solar_label); setText('#label-batt', config.battery_label); setText('#label-home', config.home_label); setText('#label-grid', config.grid_label); setText('#label-wp', config.wp_label);
-
-    const battEl = this.content.querySelector('#ms-batt');
-    battEl.className = 'circle c-batt';
-    if (isBattDischarging) battEl.classList.add('status-green'); else if (isBattCharging) battEl.classList.add('status-blue');
-    const gridEl = this.content.querySelector('#ms-grid');
-    gridEl.className = 'circle c-grid';
-    if (isGridImport) gridEl.classList.add('status-red'); else if (isGridExport) gridEl.classList.add('status-green');
 
     const priceBadge = this.content.querySelector('#ms-price-badge');
     if (config.price_entity) {
@@ -346,70 +329,50 @@ class ModernSolarFlowCard extends HTMLElement {
     if (!S || !B || !H || !G) return; 
     svg.setAttribute('viewBox', `0 0 ${area.clientWidth} ${area.clientHeight}`);
     
-    // Function to calculate point on circle surface
-    const pointOnCircle = (center, target, radius = 0) => {
-        const angle = Math.atan2(target.y - center.y, target.x - center.x);
-        return {
-            x: center.x + Math.cos(angle) * (center.r + radius), // Radius + Padding
-            y: center.y + Math.sin(angle) * (center.r + radius)
-        };
-    };
-
-    // We adjust endpoints to stop at the circle border (Radius ~47.5px + 5px padding)
+    // Padding to stop lines before they hit the circles
     const PAD = 5; 
-    // For Home, we want lines to stop exactly at the ring.
-    // Solar -> Home (Top of Home)
-    // Battery -> Home (Left of Home)
-    // Grid -> Home (Right of Home)
-    // Home -> WP (Bottom of Home)
     
-    // But since paths are dynamic curves, we use simple line logic for endpoints:
+    // Coordinates
+    const S_H_end = { x: H.x, y: H.y - H.r - PAD };
+    const S_start = { x: S.x, y: S.y + S.r + PAD };
     
-    const S_H_end = { x: H.x, y: H.y - H.r - PAD }; // Top of Home
-    const S_start = { x: S.x, y: S.y + S.r + PAD }; // Bottom of Solar
+    const B_H_end = { x: H.x - H.r - PAD, y: H.y }; 
+    const B_start = { x: B.x + B.r + PAD, y: B.y }; 
     
-    const B_H_end = { x: H.x - H.r - PAD, y: H.y }; // Left of Home
-    const B_start = { x: B.x + B.r + PAD, y: B.y }; // Right of Batt
-    
-    const G_H_end = { x: H.x + H.r + PAD, y: H.y }; // Right of Home
-    const G_start = { x: G.x - G.r - PAD, y: G.y }; // Left of Grid
-    
-    const H_W_start = { x: H.x, y: H.y + H.r + PAD }; // Bottom of Home
+    const G_H_end = { x: H.x + H.r + PAD, y: H.y }; 
+    const G_start = { x: G.x - G.r - PAD, y: G.y }; 
     
     const line = (a, b) => `M ${a.x} ${a.y} L ${b.x} ${b.y}`;
-    const curve = (a, b, bend = 0.35) => { const cy = a.y + (b.y - a.y) * bend; return `M ${a.x} ${a.y} C ${a.x} ${cy}, ${b.x} ${cy}, ${b.x} ${b.y}` };
-
     const updatePath = (id, d) => { const p1 = this.content.querySelector(id.replace('flow', 'bg')); const p2 = this.content.querySelector(id); if (p1) p1.setAttribute('d', d); if (p2) p2.setAttribute('d', d); }
     
-    // S -> H
+    // Solar -> Home
     updatePath('#p-flow-s-h', line(S_start, S_H_end));
     
-    // S -> B (Curve)
-    // Start bottom of Solar, End top of Batt? Or Center? 
-    // Let's keep using Centers for curves but clip start/end? 
-    // It's easier to just use centers for curves as they don't overlap much visually with the circle itself usually.
-    // But for cleaner look, let's try to target top of B and G.
+    // Solar -> Battery (Curve)
+    // We start at Solar Bottom, End at Battery Top
     const B_top = { x: B.x, y: B.y - B.r - PAD };
+    updatePath('#p-flow-s-b', `M ${S.x} ${S.y + S.r + PAD} C ${S.x} ${B.y - 50}, ${B.x} ${B.y - 50}, ${B.x} ${B_top.y}`);
+    
+    // Solar -> Grid (Curve)
     const G_top = { x: G.x, y: G.y - G.r - PAD };
-    updatePath('#p-flow-s-b', `M ${S.x} ${S.y + S.r} C ${S.x} ${B.y - 50}, ${B.x} ${B.y - 50}, ${B.x} ${B_top.y}`);
-    updatePath('#p-flow-s-g', `M ${S.x} ${S.y + S.r} C ${S.x} ${G.y - 50}, ${G.x} ${G.y - 50}, ${G.x} ${G_top.y}`);
+    updatePath('#p-flow-s-g', `M ${S.x} ${S.y + S.r + PAD} C ${S.x} ${G.y - 50}, ${G.x} ${G.y - 50}, ${G.x} ${G_top.y}`);
 
-    // B -> H
+    // Battery -> Home
     updatePath('#p-flow-b-h', line(B_start, B_H_end));
     
-    // G -> H
+    // Grid -> Home
     updatePath('#p-flow-g-h', line(G_start, G_H_end));
     
-    // G -> B (Direct line at bottom?) - currently line(G, B)
-    // To avoid crossing Home, we might need a curve downwards?
-    // Current implementation: line(G, B). This crosses Home if they are aligned.
-    // Actually, in CSS Grid they are left/right. Home is in middle. 
-    // So G->B goes THROUGH Home. That's bad.
-    // Let's curve it below Home.
+    // Grid -> Battery (Curve below Home)
     const y_low = H.y + H.r + 20;
-    updatePath('#p-flow-g-b', `M ${G.x} ${G.y + G.r} C ${G.x} ${y_low}, ${B.x} ${y_low}, ${B.x} ${B.y + B.r}`);
+    const B_bottom = { x: B.x, y: B.y + B.r + PAD };
+    const G_bottom = { x: G.x, y: G.y + G.r + PAD };
+    // Start Grid Bottom, End Battery Bottom? Or Grid Left -> Battery Right (through home)?
+    // Let's use Bottom to Bottom curve to avoid crossing Home
+    updatePath('#p-flow-g-b', `M ${G.x} ${G.y + G.r + PAD} C ${G.x} ${y_low}, ${B.x} ${y_low}, ${B.x} ${B.y + B.r + PAD}`);
 
     if (W) {
+        const H_W_start = { x: H.x, y: H.y + H.r + PAD }; 
         const W_top = { x: W.x, y: W.y - W.r - PAD };
         updatePath('#p-flow-h-w', line(H_W_start, W_top));
     }
