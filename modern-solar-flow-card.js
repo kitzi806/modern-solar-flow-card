@@ -1,4 +1,4 @@
-const CARD_VERSION = '0.3.7';
+const CARD_VERSION = '0.3.8';
 
 console.info(
   `%c  MODERN-SOLAR-FLOW-CARD  \n%c  Version ${CARD_VERSION}    `,
@@ -45,60 +45,60 @@ class ModernSolarFlowCard extends HTMLElement {
     card.appendChild(this.content);
     this.shadowRoot.appendChild(card);
 
-    this.content.innerHTML = `
-      <style id="ms-style"></style>
-      <div class="diagram-area">
-        <div class="price-badge hidden" id="ms-price-badge"><span>⚡</span><span id="ms-price-val"></span></div>
-        <svg id="ms-svg">
-            <g id="ms-paths">
-                <path id="p-bg-s-h" class="path-bg"></path><path id="p-flow-s-h" class="path-flow"></path>
-                <path id="p-bg-s-b" class="path-bg"></path><path id="p-flow-s-b" class="path-flow flow-blue"></path>
-                <path id="p-bg-s-g" class="path-bg"></path><path id="p-flow-s-g" class="path-flow"></path>
-                <path id="p-bg-b-h" class="path-bg"></path><path id="p-flow-b-h" class="path-flow flow-green"></path>
-                <path id="p-bg-g-h" class="path-bg"></path><path id="p-flow-g-h" class="path-flow flow-red"></path>
-                <path id="p-bg-g-b" class="path-bg"></path><path id="p-flow-g-b" class="path-flow flow-red"></path>
-                <path id="p-bg-h-w" class="path-bg hidden"></path><path id="p-flow-h-w" class="path-flow hidden"></path>
+    this.content.innerHTML = "`
+      <style id=\"ms-style\"></style>
+      <div class=\"diagram-area\">
+        <div class=\"price-badge hidden\" id=\"ms-price-badge\"><span>⚡</span><span id=\"ms-price-val\"></span></div>
+        <svg id=\"ms-svg\">
+            <g id=\"ms-paths\">
+                <path id=\"p-bg-s-h\" class=\"path-bg\"></path><path id=\"p-flow-s-h\" class=\"path-flow\"></path>
+                <path id=\"p-bg-s-b\" class=\"path-bg\"></path><path id=\"p-flow-s-b\" class=\"path-flow flow-blue\"></path>
+                <path id=\"p-bg-s-g\" class=\"path-bg\"></path><path id=\"p-flow-s-g\" class=\"path-flow\"></path>
+                <path id=\"p-bg-b-h\" class=\"path-bg\"></path><path id=\"p-flow-b-h\" class=\"path-flow flow-green\"></path>
+                <path id=\"p-bg-g-h\" class=\"path-bg\"></path><path id=\"p-flow-g-h\" class=\"path-flow flow-red\"></path>
+                <path id=\"p-bg-g-b\" class=\"path-bg\"></path><path id=\"p-flow-g-b\" class=\"path-flow flow-red\"></path>
+                <path id=\"p-bg-h-w\" class=\"path-bg hidden\"></path><path id=\"p-flow-h-w\" class=\"path-flow hidden\"></path>
             </g>
         </svg>
 
-        <div class="circle c-solar" id="ms-solar">
-          <ha-icon icon="mdi:solar-power-variant" class="icon"></ha-icon>
-          <div class="val" id="val-solar">--</div>
-          <div class="label" id="label-solar"></div>
+        <div class=\"circle c-solar\" id=\"ms-solar\">
+          <ha-icon icon=\"mdi:solar-power-variant\" class=\"icon\"></ha-icon>
+          <div class=\"val\" id=\"val-solar\">--</div>
+          <div class=\"label\" id=\"label-solar\"></div>
         </div>
 
-        <div class="circle c-batt" id="ms-batt">
-          <ha-icon icon="mdi:battery-high" class="icon"></ha-icon>
-          <div class="val" id="val-batt-soc">--</div>
-          <div class="sub-val" id="val-batt-power">--</div>
-          <div class="label" id="label-batt"></div>
+        <div class=\"circle c-batt\" id=\"ms-batt\">
+          <ha-icon icon=\"mdi:battery-high\" class=\"icon\"></ha-icon>
+          <div class=\"val\" id=\"val-batt-soc\">--</div>
+          <div class=\"sub-val\" id=\"val-batt-power\">--</div>
+          <div class=\"label\" id=\"label-batt\"></div>
         </div>
         
-        <div class="circle c-home" id="ms-home">
-          <div class="home-ring-container" id="home-ring"></div>
-          <ha-icon icon="mdi:home-lightning-bolt" class="icon"></ha-icon>
-          <div class="val" id="val-home">--</div>
-          <div class="label" id="label-home"></div>
+        <div class=\"circle c-home\" id=\"ms-home\">
+          <div class=\"home-ring-container\" id=\"home-ring\"></div>
+          <ha-icon icon=\"mdi:home-lightning-bolt\" class=\"icon\"></ha-icon>
+          <div class=\"val\" id=\"val-home\">--</div>
+          <div class=\"label\" id=\"label-home\"></div>
         </div>
 
-        <div class="circle c-grid" id="ms-grid">
-          <ha-icon icon="mdi:transmission-tower" class="icon"></ha-icon>
-          <div class="val" id="val-grid">--</div>
-          <div class="label" id="label-grid"></div>
+        <div class=\"circle c-grid\" id=\"ms-grid\">
+          <ha-icon icon=\"mdi:transmission-tower\" class=\"icon\"></ha-icon>
+          <div class=\"val\" id=\"val-grid\">--</div>
+          <div class=\"label\" id=\"label-grid\"></div>
         </div>
 
-        <div class="circle c-wp hidden" id="ms-wp">
-          <ha-icon icon="mdi:heat-pump" class="icon-small"></ha-icon>
-          <div class="val" id="val-wp">--</div>
-          <div class="label" id="label-wp"></div>
+        <div class=\"circle c-wp hidden\" id=\"ms-wp\">
+          <ha-icon icon=\"mdi:heat-pump\" class=\"icon-small\"></ha-icon>
+          <div class=\"val\" id=\"val-wp\">--</div>
+          <div class=\"label\" id=\"label-wp\"></div>
         </div>
       </div>
 
-      <div class="stats-footer" id="ms-footer">
-        <div class="stat-block"><div class="chart-wrap" id="chart-solar"></div><div class="stat-info"><div class="stat-main" id="stat-solar-val">--</div><div class="stat-sub"><span class="dot" style="background:var(--ms-color-solar)"></span><span id="stat-solar-self">--</span></div><div class="stat-sub"><span class="dot" style="background:var(--ms-color-orange)"></span><span id="stat-solar-grid">--</span></div></div></div>
-        <div class="stat-block"><div class="chart-wrap" id="chart-cons"></div><div class="stat-info"><div class="stat-main" id="stat-cons-val">--</div><div class="stat-sub"><span class="dot" style="background:var(--ms-color-blue)"></span><span id="stat-cons-pv">--</span></div><div class="stat-sub"><span class="dot" style="background:var(--ms-color-red)"></span><span id="stat-cons-grid">--</span></div></div></div>
+      <div class=\"stats-footer\" id=\"ms-footer\">
+        <div class=\"stat-block\"><div class=\"chart-wrap\" id=\"chart-solar\"></div><div class=\"stat-info\"><div class=\"stat-main\" id=\"stat-solar-val\">--</div><div class=\"stat-sub\"><span class=\"dot\" style=\"background:var(--ms-color-solar)\"></span><span id=\"stat-solar-self\">--</span></div><div class=\"stat-sub\"><span class=\"dot\" style=\"background:var(--ms-color-orange)\"></span><span id=\"stat-solar-grid\">--</span></div></div></div>
+        <div class=\"stat-block\"><div class=\"chart-wrap\" id=\"chart-cons\"></div><div class=\"stat-info\"><div class=\"stat-main\" id=\"stat-cons-val\">--</div><div class=\"stat-sub\"><span class=\"dot\" style=\"background:var(--ms-color-blue)\"></span><span id=\"stat-cons-pv\">--</span></div><div class=\"stat-sub\"><span class=\"dot\" style=\"background:var(--ms-color-red)\"></span><span id=\"stat-cons-grid\">--</span></div></div></div>
       </div>
-    `;
+    ";
 
     this._ro = new ResizeObserver(() => {
       if (this._resizeTimer) clearTimeout(this._resizeTimer);
@@ -114,25 +114,25 @@ class ModernSolarFlowCard extends HTMLElement {
     const isDailyVisible = config.show_daily_stats !== false;
 
     const styleVars = isDark ? `
-      --ms-bg: linear-gradient(180deg, #111827 0%, #000000 100%); --ms-card-border: 1px solid #1f2937; --ms-shadow: 0 4px 15px rgba(0,0,0,0.5); --ms-circle-bg: #1f2937; --ms-circle-border: 2px solid #374151; --ms-text-val: #ffffff; --ms-text-label: #9ca3af; --ms-text-unit: #6b7280; --ms-path-bg: #374151; --ms-bar-bg: rgba(31, 41, 55, 0.6); --ms-color-solar: #4ade80; --ms-color-red: #f87171; --ms-color-blue: #60a5fa; --ms-color-orange: #fb8c00; --ms-color-wp: #fb8c00; --ms-glow-green: drop-shadow(0 0 5px rgba(74, 222, 128, 0.8)); --ms-glow-red: drop-shadow(0 0 5px rgba(248, 113, 113, 0.8)); --ms-glow-blue: drop-shadow(0 0 5px rgba(96, 165, 250, 0.8)); --ms-glow-orange: drop-shadow(0 0 5px rgba(251, 140, 0, 0.8));
+      --ms-bg: linear-gradient(180deg, #111827 0%, #000000 100%); --ms-card-border: 1px solid #1f2937; --ms-shadow: 0 4px 15px rgba(0,0,0,0.5); --ms-circle-bg: #1f2937; --ms-circle-border: 3px solid #374151; --ms-text-val: #ffffff; --ms-text-label: #9ca3af; --ms-text-unit: #6b7280; --ms-path-bg: #374151; --ms-bar-bg: rgba(31, 41, 55, 0.6); --ms-color-solar: #4ade80; --ms-color-red: #f87171; --ms-color-blue: #60a5fa; --ms-color-orange: #fb8c00; --ms-color-wp: #fb8c00; --ms-glow-green: drop-shadow(0 0 5px rgba(74, 222, 128, 0.8)); --ms-glow-red: drop-shadow(0 0 5px rgba(248, 113, 113, 0.8)); --ms-glow-blue: drop-shadow(0 0 5px rgba(96, 165, 250, 0.8)); --ms-glow-orange: drop-shadow(0 0 5px rgba(251, 140, 0, 0.8));
     ` : `
-      --ms-bg: linear-gradient(180deg, #e1f5fe 0%, #ffffff 100%); --ms-card-border: none; --ms-shadow: 0 4px 15px rgba(0,0,0,0.05); --ms-circle-bg: #ffffff; --ms-circle-border: 2px solid #e0e0e0; --ms-text-val: #333333; --ms-text-label: #666666; --ms-text-unit: #888888; --ms-path-bg: #e0e0e0; --ms-bar-bg: rgba(255, 255, 255, 0.7); --ms-color-solar: #66bb6a; --ms-color-red: #ef5350; --ms-color-blue: #42a5f5; --ms-color-orange: #ff9800; --ms-color-wp: #ff9800; --ms-glow-green: none; --ms-glow-red: none; --ms-glow-blue: none; --ms-glow-orange: none;
+      --ms-bg: linear-gradient(180deg, #e1f5fe 0%, #ffffff 100%); --ms-card-border: none; --ms-shadow: 0 4px 15px rgba(0,0,0,0.05); --ms-circle-bg: #ffffff; --ms-circle-border: 4px solid #e0e0e0; --ms-text-val: #333333; --ms-text-label: #666666; --ms-text-unit: #888888; --ms-path-bg: #e0e0e0; --ms-bar-bg: rgba(255, 255, 255, 0.7); --ms-color-solar: #66bb6a; --ms-color-red: #ef5350; --ms-color-blue: #42a5f5; --ms-color-orange: #ff9800; --ms-color-wp: #ff9800; --ms-glow-green: none; --ms-glow-red: none; --ms-glow-blue: none; --ms-glow-orange: none;
     `;
 
     const css = `.solar-root { ${styleVars} position: relative; isolation: isolate; height: ${isDailyVisible ? '540px' : '440px'}; background: var(--ms-bg); border: var(--ms-card-border); border-radius: 20px; box-shadow: var(--ms-shadow); overflow: hidden; display: flex; flex-direction: column; font-family: 'Roboto', sans-serif; box-sizing: border-box; transition: height 0.3s ease; } .diagram-area { position: relative; flex-grow: 1; width: 100%; } .price-badge { position: absolute; top: 15px; right: 15px; background: var(--ms-circle-bg); opacity: 0.9; border: 1px solid var(--ms-text-unit); padding: 4px 10px; border-radius: 15px; font-size: 12px; font-weight: 700; color: var(--ms-text-val); z-index: 50; display: flex; align-items: center; gap: 6px; } .hidden { display: none !important; } 
     .circle { position: absolute; background: var(--ms-circle-bg); border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; border: var(--ms-circle-border); box-shadow: 0 8px 20px rgba(0,0,0,0.12); z-index: 20; transition: border-color 0.3s ease; padding: 5px; box-sizing: border-box; } 
     .icon { --mdc-icon-size: 24px; color: var(--ms-text-label); margin-bottom: 2px; } .icon-small { --mdc-icon-size: 18px; color: var(--ms-text-label); }
-    .c-solar { top: 20px; left: 50%; transform: translateX(-50%); width: 115px; height: 115px; border-color: var(--ms-color-solar); } 
+    .c-solar { top: 20px; left: 50%; transform: translateX(-50%); width: 115px; height: 115px; } 
     .c-batt { top: 180px; left: 10px; width: 95px; height: 95px; } 
-    .c-home { top: 180px; left: 50%; transform: translateX(-50%); width: 95px; height: 95px; border: none; } 
+    .c-home { top: 180px; left: 50%; transform: translateX(-50%); width: 95px; height: 95px; border: 2px solid var(--ms-circle-border); } 
     .c-grid { top: 180px; right: 10px; width: 95px; height: 95px; } 
     .c-wp { top: 320px; left: 50%; transform: translateX(-50%); width: 75px; height: 75px; border-color: var(--ms-color-wp); } 
-    .home-ring-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; transform: rotate(-90deg); } 
+    .home-ring-container { position: absolute; top: -3px; left: -3px; width: calc(100% + 6px); height: calc(100% + 6px); z-index: 10; transform: rotate(-90deg); pointer-events: none; } 
     .status-red { border-color: var(--ms-color-red) !important; } .status-green { border-color: var(--ms-color-solar) !important; } .status-blue { border-color: var(--ms-color-blue) !important; } .status-wp { border-color: var(--ms-color-wp) !important; } 
-    .val { font-size: 18px; font-weight: 900; color: var(--ms-text-val); line-height: 1; z-index: 5; } 
+    .val { font-size: 18px; font-weight: 900; color: var(--ms-text-val); line-height: 1; z-index: 5; text-align: center; } 
     .unit { font-size: 11px; font-weight: 500; color: var(--ms-text-unit); margin-left: 1px; } 
-    .sub-val { font-size: 12px; font-weight: 600; color: var(--ms-text-unit); margin-top: 1px; z-index: 5; } 
-    .label { font-size: 9px; font-weight: 700; color: var(--ms-text-label); text-transform: uppercase; margin-top: 1px; z-index: 5; } 
+    .sub-val { font-size: 12px; font-weight: 600; color: var(--ms-text-unit); line-height: 1; margin-top: 2px; z-index: 5; text-align: center; } 
+    .label { font-size: 9px; font-weight: 700; color: var(--ms-text-label); text-transform: uppercase; line-height: 1; margin-top: 3px; z-index: 5; text-align: center; } 
     .c-solar .val { font-size: 26px; } #ms-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; } 
     .path-bg { fill: none; stroke: var(--ms-path-bg); stroke-width: 4px; opacity: 0.2; stroke-linecap: round; } 
     .path-flow { fill: none; stroke: var(--ms-color-solar); stroke-width: 5px; stroke-dasharray: 12; opacity: 0; stroke-linecap: round; transition: stroke 0.3s ease, opacity 0.3s ease; } 
@@ -146,16 +146,13 @@ class ModernSolarFlowCard extends HTMLElement {
     const ent = (eid) => (eid ? hass.states[eid] : null);
     const setText = (id, text) => { const el = this.content.querySelector(id); if (el) el.innerHTML = text; };
     
-    // NEW MKRING: ViewBox 100x100 for better stroke control
     const mkRing = (percent, colorMain, colorBg, strokeWidth) => { 
         const p = Math.min(Math.max(percent, 0), 100); 
-        // 100x100 box. Center 50,50. Radius 45 (to leave padding for stroke).
-        // 2 * PI * 45 = 282.743 (Circumference)
         const C = 282.743;
         const dash = (p / 100) * C;
-        return `<svg viewBox="0 0 100 100" class="donut-chart">
-            <path class="donut-bg" d="M50 5 a 45 45 0 0 1 0 90 a 45 45 0 0 1 0 -90" stroke="${colorBg}" stroke-width="${strokeWidth}" fill="none" />
-            <path class="donut-seg" d="M50 5 a 45 45 0 0 1 0 90 a 45 45 0 0 1 0 -90" stroke="${colorMain}" stroke-width="${strokeWidth}" stroke-dasharray="${dash}, ${C}" fill="none" />
+        return `<svg viewBox=\"0 0 100 100\" class=\"donut-chart\" style=\"width:100%; height:100%;\">
+            <path d=\"M50 5 a 45 45 0 0 1 0 90 a 45 45 0 0 1 0 -90\" stroke=\"${colorBg}\" stroke-width=\"${strokeWidth}\" fill=\"none\" />
+            <path d=\"M50 5 a 45 45 0 0 1 0 90 a 45 45 0 0 1 0 -90\" stroke=\"${colorMain}\" stroke-width=\"${strokeWidth}\" stroke-dasharray=\"${dash}, ${C}\" fill=\"none\" stroke-linecap=\"round\" />
         </svg>`; 
     };
 
@@ -167,7 +164,7 @@ class ModernSolarFlowCard extends HTMLElement {
     const THRESHOLD = 10; const isSolarProducing = solarVal > THRESHOLD; const isGridImport = gridVal > THRESHOLD; const isGridExport = gridVal < -THRESHOLD; const isBattDischarging = battPower > THRESHOLD; const isBattCharging = battPower < -THRESHOLD;
 
     let s_to_h = false, s_to_b = false, s_to_g = false, g_to_h = false, b_to_h = false, g_to_b = false;
-    if (isSolarProducing) { s_to_h = true; if (isBattCharging) s_to_b = true; if (isGridExport) s_to_g = true; } 
+    if (isSolarProducing) { s_to_h = true; if (isBattCharging) s_to_b = true; if (isGridExport) s_to_g = true; }
     if (isGridImport) { g_to_h = true; if (isBattCharging) g_to_b = true; }
     if (isBattDischarging) b_to_h = true;
 
@@ -178,18 +175,14 @@ class ModernSolarFlowCard extends HTMLElement {
     setText('#val-grid', `${Math.abs(Math.round(gridVal))}<span class="unit">W</span>`);
     setText('#label-solar', config.solar_label); setText('#label-batt', config.battery_label); setText('#label-home', config.home_label); setText('#label-grid', config.grid_label); setText('#label-wp', config.wp_label);
 
+    const solarEl = this.content.querySelector('#ms-solar'); solarEl.classList.toggle('status-green', isSolarProducing);
     const battEl = this.content.querySelector('#ms-batt'); battEl.className = 'circle c-batt';
     if (isBattDischarging) battEl.classList.add('status-green'); else if (isBattCharging) battEl.classList.add('status-blue');
     const gridEl = this.content.querySelector('#ms-grid'); gridEl.className = 'circle c-grid';
     if (isGridImport) gridEl.classList.add('status-red'); else if (isGridExport) gridEl.classList.add('status-green');
 
     const homeRing = this.content.querySelector('#home-ring');
-    if (homeVal > 0) { 
-        const importVal = isGridImport ? gridVal : 0; 
-        const autarky = Math.max(0, Math.min(100, ((homeVal - importVal) / homeVal) * 100)); 
-        // ViewBox 100x100 -> Stroke 3 is effectively 3px
-        homeRing.innerHTML = mkRing(autarky, 'var(--ms-color-solar)', 'var(--ms-color-red)', 3); 
-    } 
+    if (homeVal > 0) { const importVal = isGridImport ? gridVal : 0; const autarky = Math.max(0, Math.min(100, ((homeVal - importVal) / homeVal) * 100)); homeRing.innerHTML = mkRing(autarky, 'var(--ms-color-solar)', 'var(--ms-color-red)', 3); } 
     else { homeRing.innerHTML = mkRing(100, 'var(--ms-color-solar)', 'var(--ms-color-solar)', 3); }
 
     const wpEntity = ent(config.wp_entity);
@@ -202,7 +195,7 @@ class ModernSolarFlowCard extends HTMLElement {
       wpEl.classList.remove('hidden'); wpPathBg.classList.remove('hidden'); wpPathFlow.classList.remove('hidden');
       setText('#val-wp', isWpRunning ? (hasPower ? `${Math.round(Math.abs(n))} W` : 'EIN') : 'AUS');
       wpEl.classList.toggle('status-wp', isWpRunning);
-      let wpLineClass = 'flow-wp'; if (isWpRunning) { if (isGridImport) wpLineClass = 'flow-red'; else wpLineClass = 'flow-green'; } 
+      let wpLineClass = 'flow-wp'; if (isWpRunning) { if (isGridImport) wpLineClass = 'flow-red'; else wpLineClass = 'flow-green'; }
       wpPathFlow.setAttribute('class', `path-flow ${wpLineClass} ${isWpRunning ? 'active' : ''}`);
     } else {
       this.content.querySelector('#ms-wp').classList.add('hidden'); this.content.querySelector('#p-bg-h-w').classList.add('hidden'); this.content.querySelector('#p-flow-h-w').classList.add('hidden');
@@ -219,9 +212,6 @@ class ModernSolarFlowCard extends HTMLElement {
         const dSolar = getVal(config.solar_daily_entity); const dGrid = getVal(config.grid_daily_entity); const dSelf = getVal(config.self_daily_entity); const dCons = getVal(config.consumption_daily_entity);
         const pSolarSelf = dSolar > 0 ? (dSelf / dSolar) * 100 : 0; const pConsPV = dCons > 0 ? (dSelf / dCons) * 100 : 0;
         setText('#stat-solar-val', `${dSolar.toFixed(1)} kWh`); setText('#stat-solar-self', `${dSelf.toFixed(1)} Eigen`); setText('#stat-solar-grid', `${(dSolar - dSelf).toFixed(1)} Netz`);
-        // Use old mkRing with small viewbox for footer charts to keep them thick? Or update them too?
-        // Let's keep them thick, they look good there. We define a separate helper or pass stroke.
-        // Actually, the mkRing function above now uses 100x100. We need to pass bigger stroke for footer (e.g. 10).
         this.content.querySelector('#chart-solar').innerHTML = mkRing(pSolarSelf, 'var(--ms-color-solar)', 'var(--ms-color-orange)', 10);
         setText('#stat-cons-val', `${dCons.toFixed(1)} kWh`); setText('#stat-cons-pv', `${pConsPV.toFixed(0)}% PV`); setText('#stat-cons-grid', `${(100 - pConsPV).toFixed(0)}% Netz`);
         this.content.querySelector('#chart-cons').innerHTML = mkRing(pConsPV, 'var(--ms-color-blue)', 'var(--ms-color-red)', 10);
@@ -237,7 +227,6 @@ class ModernSolarFlowCard extends HTMLElement {
     svg.setAttribute('viewBox', `0 0 ${area.clientWidth} ${area.clientHeight}`);
     const PAD = 5; 
     const updatePath = (id, d) => { const p1 = this.content.querySelector(id.replace('flow', 'bg')); const p2 = this.content.querySelector(id); if (p1) p1.setAttribute('d', d); if (p2) p2.setAttribute('d', d); }
-    
     updatePath('#p-flow-s-h', `M ${S.x} ${S.y + S.r + PAD} L ${H.x} ${H.y - H.r - PAD}`);
     const curveTop = (x1, y1, x2, y2) => { const dy = (y2 - y1) * 0.6; return `M ${x1} ${y1} C ${x1} ${y1 + dy}, ${x2} ${y2 - dy}, ${x2} ${y2}`; };
     updatePath('#p-flow-s-b', curveTop(S.x, S.y + S.r + PAD, B.x, B.y - B.r - PAD));
