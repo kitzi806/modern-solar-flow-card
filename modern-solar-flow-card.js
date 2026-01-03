@@ -1,4 +1,4 @@
-const CARD_VERSION = '1.2.1';
+const CARD_VERSION = '0.3.4';
 
 console.info(
   `%c  MODERN-SOLAR-FLOW-CARD  \n%c  Version ${CARD_VERSION}    `,
