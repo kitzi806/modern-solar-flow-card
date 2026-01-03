@@ -1,4 +1,4 @@
-const CARD_VERSION = '1.1.4';
+const CARD_VERSION = '1.1.5';
 
 console.info(
   `%c  MODERN-SOLAR-FLOW-CARD  \n%c  Version ${CARD_VERSION}    `,
@@ -239,7 +239,10 @@ class ModernSolarFlowCard extends HTMLElement {
     const styleEl = this.content.querySelector('#ms-style');
     if (styleEl && styleEl.innerHTML !== css) { styleEl.innerHTML = css; }
 
-    const fnum = (x) => { if (typeof x === 'string') x = x.replace(',', '.'); const v = parseFloat(x); return Number.isFinite(v) ? v : 0; };
+    const fnum = (x) => { 
+        if (typeof x === 'string') x = x.replace(',', '.'); 
+        const v = parseFloat(x); return Number.isFinite(v) ? v : 0; 
+    };
     const state = (eid) => (eid && hass.states[eid] ? hass.states[eid].state : null);
     const getVal = (eid) => (eid ? fnum(state(eid)) : 0);
     const ent = (eid) => (eid ? hass.states[eid] : null);
@@ -324,57 +327,43 @@ class ModernSolarFlowCard extends HTMLElement {
     const svg = this.content.querySelector('#ms-svg');
     const area = this.content.querySelector('.diagram-area');
     if (!svg || !area) return;
+    
+    // We only access these if everything is rendered
     const getPos = (id) => { const el = this.content.querySelector(id); if (!el || el.offsetParent === null) return null; const r = el.getBoundingClientRect(); const ar = area.getBoundingClientRect(); return { x: (r.left - ar.left) + r.width / 2, y: (r.top - ar.top) + r.height / 2, r: r.width / 2 }; };
     const S = getPos('#ms-solar'), B = getPos('#ms-batt'), H = getPos('#ms-home'), G = getPos('#ms-grid'), W = getPos('#ms-wp');
     if (!S || !B || !H || !G) return; 
+    
     svg.setAttribute('viewBox', `0 0 ${area.clientWidth} ${area.clientHeight}`);
     
-    // Padding to stop lines before they hit the circles
+    // Simple padding
     const PAD = 5; 
     
-    // Coordinates
-    const S_H_end = { x: H.x, y: H.y - H.r - PAD };
-    const S_start = { x: S.x, y: S.y + S.r + PAD };
+    const line = (x1, y1, x2, y2) => `M ${x1} ${y1} L ${x2} ${y2}`;
+    const curve = (x1, y1, x2, y2, bend = 0.35) => { const cy = y1 + (y2 - y1) * bend; return `M ${x1} ${y1} C ${x1} ${cy}, ${x2} ${cy}, ${x2} ${y2}`};
     
-    const B_H_end = { x: H.x - H.r - PAD, y: H.y }; 
-    const B_start = { x: B.x + B.r + PAD, y: B.y }; 
-    
-    const G_H_end = { x: H.x + H.r + PAD, y: H.y }; 
-    const G_start = { x: G.x - G.r - PAD, y: G.y }; 
-    
-    const line = (a, b) => `M ${a.x} ${a.y} L ${b.x} ${b.y}`;
     const updatePath = (id, d) => { const p1 = this.content.querySelector(id.replace('flow', 'bg')); const p2 = this.content.querySelector(id); if (p1) p1.setAttribute('d', d); if (p2) p2.setAttribute('d', d); }
     
-    // Solar -> Home
-    updatePath('#p-flow-s-h', line(S_start, S_H_end));
+    // Solar -> Home (Top of Home)
+    updatePath('#p-flow-s-h', line(S.x, S.y + S.r + PAD, H.x, H.y - H.r - PAD));
     
-    // Solar -> Battery (Curve)
-    // We start at Solar Bottom, End at Battery Top
-    const B_top = { x: B.x, y: B.y - B.r - PAD };
-    updatePath('#p-flow-s-b', `M ${S.x} ${S.y + S.r + PAD} C ${S.x} ${B.y - 50}, ${B.x} ${B.y - 50}, ${B.x} ${B_top.y}`);
+    // Solar -> Batt (Curve)
+    updatePath('#p-flow-s-b', curve(S.x, S.y + S.r + PAD, B.x, B.y - B.r - PAD));
     
     // Solar -> Grid (Curve)
-    const G_top = { x: G.x, y: G.y - G.r - PAD };
-    updatePath('#p-flow-s-g', `M ${S.x} ${S.y + S.r + PAD} C ${S.x} ${G.y - 50}, ${G.x} ${G.y - 50}, ${G.x} ${G_top.y}`);
+    updatePath('#p-flow-s-g', curve(S.x, S.y + S.r + PAD, G.x, G.y - G.r - PAD));
 
-    // Battery -> Home
-    updatePath('#p-flow-b-h', line(B_start, B_H_end));
+    // Batt -> Home (Left of Home)
+    updatePath('#p-flow-b-h', line(B.x + B.r + PAD, B.y, H.x - H.r - PAD, H.y));
     
-    // Grid -> Home
-    updatePath('#p-flow-g-h', line(G_start, G_H_end));
+    // Grid -> Home (Right of Home)
+    updatePath('#p-flow-g-h', line(G.x - G.r - PAD, G.y, H.x + H.r + PAD, H.y));
     
-    // Grid -> Battery (Curve below Home)
+    // Grid -> Batt (Curve LOW)
     const y_low = H.y + H.r + 20;
-    const B_bottom = { x: B.x, y: B.y + B.r + PAD };
-    const G_bottom = { x: G.x, y: G.y + G.r + PAD };
-    // Start Grid Bottom, End Battery Bottom? Or Grid Left -> Battery Right (through home)?
-    // Let's use Bottom to Bottom curve to avoid crossing Home
     updatePath('#p-flow-g-b', `M ${G.x} ${G.y + G.r + PAD} C ${G.x} ${y_low}, ${B.x} ${y_low}, ${B.x} ${B.y + B.r + PAD}`);
 
     if (W) {
-        const H_W_start = { x: H.x, y: H.y + H.r + PAD }; 
-        const W_top = { x: W.x, y: W.y - W.r - PAD };
-        updatePath('#p-flow-h-w', line(H_W_start, W_top));
+        updatePath('#p-flow-h-w', line(H.x, H.y + H.r + PAD, W.x, W.y - W.r - PAD));
     }
   }
 
