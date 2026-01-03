@@ -1,4 +1,4 @@
-const CARD_VERSION = '1.0.3';
+const CARD_VERSION = '1.0.4';
 
 console.info(
   `%c  MODERN-SOLAR-FLOW-CARD  \n%c  Version ${CARD_VERSION}    `,
@@ -21,8 +21,6 @@ class ModernSolarFlowCard extends HTMLElement {
   }
 
   setConfig(config) {
-    // If config changes, we might need to redraw layout
-    const oldConfig = this.config;
     this.config = {
       solar_label: 'PV Ertrag',
       grid_label: 'Netz',
@@ -35,37 +33,22 @@ class ModernSolarFlowCard extends HTMLElement {
       ...config
     };
     
-    // Trigger re-creation if crucial layout flags change
-    if (oldConfig && (oldConfig.show_daily_stats !== this.config.show_daily_stats || oldConfig.wp_entity !== this.config.wp_entity)) {
-        if (this.content) {
-             this.content.innerHTML = ''; // Force clear
-             this._createCard();
-        }
+    // If we already have content, we might need to adjust layout classes immediately
+    if (this.content) {
+        this._updateContent();
     }
   }
 
   _createCard() {
-    if (this.content && this.content.innerHTML !== '') return; // Already created
+    if (this.content) return; 
 
-    if (!this.content) {
-        const card = document.createElement('ha-card');
-        this.content = document.createElement('div');
-        this.content.className = 'solar-root';
-        card.appendChild(this.content);
-        this.shadowRoot.appendChild(card);
-    }
+    const card = document.createElement('ha-card');
+    this.content = document.createElement('div');
+    this.content.className = 'solar-root';
+    card.appendChild(this.content);
+    this.shadowRoot.appendChild(card);
 
-    const config = this.config || {};
-    const isDark = (this._hass && this._hass.themes && this._hass.themes.darkMode) ?? false;
-    const isDailyVisible = config.show_daily_stats !== false;
-
-    // We define CSS vars here initially, but they are also updated in _updateContent to react to theme changes
-    // However, defining the structure is key.
-    
-    // We need unique IDs for paths to update them later
-    // Paths: S-H, S-B, S-G, B-H, G-H, G-B, H-W
-    // We create them in the DOM.
-
+    // Initial HTML Structure - created ONCE
     this.content.innerHTML = `
       <style id="ms-style"></style>
       <div class="diagram-area">
@@ -73,51 +56,40 @@ class ModernSolarFlowCard extends HTMLElement {
         
         <svg id="ms-svg">
             <g id="ms-paths">
-                <!-- Solar Paths -->
                 <path id="p-bg-s-h" class="path-bg"></path><path id="p-flow-s-h" class="path-flow"></path>
                 <path id="p-bg-s-b" class="path-bg"></path><path id="p-flow-s-b" class="path-flow flow-blue"></path>
                 <path id="p-bg-s-g" class="path-bg"></path><path id="p-flow-s-g" class="path-flow"></path>
-                
-                <!-- Batt Paths -->
                 <path id="p-bg-b-h" class="path-bg"></path><path id="p-flow-b-h" class="path-flow flow-green"></path>
-                
-                <!-- Grid Paths -->
                 <path id="p-bg-g-h" class="path-bg"></path><path id="p-flow-g-h" class="path-flow flow-red"></path>
                 <path id="p-bg-g-b" class="path-bg"></path><path id="p-flow-g-b" class="path-flow flow-red"></path>
-                
-                <!-- WP Path -->
                 <path id="p-bg-h-w" class="path-bg hidden"></path><path id="p-flow-h-w" class="path-flow hidden"></path>
             </g>
         </svg>
 
         <div class="circle c-solar" id="ms-solar">
           <div class="val" id="val-solar">--<span class="unit">W</span></div>
-          <div class="label" id="label-solar">${config.solar_label}</div>
+          <div class="label" id="label-solar"></div>
         </div>
-
         <div class="circle c-batt" id="ms-batt">
           <div class="val" id="val-batt-soc">--<span class="unit">%</span></div>
           <div class="sub-val" id="val-batt-power">-- W</div>
-          <div class="label" id="label-batt">${config.battery_label}</div>
+          <div class="label" id="label-batt"></div>
         </div>
-
         <div class="circle c-home" id="ms-home">
           <div class="val" id="val-home">--<span class="unit">W</span></div>
-          <div class="label" id="label-home">${config.home_label}</div>
+          <div class="label" id="label-home"></div>
         </div>
-
         <div class="circle c-grid" id="ms-grid">
           <div class="val" id="val-grid">--<span class="unit">W</span></div>
-          <div class="label" id="label-grid">${config.grid_label}</div>
+          <div class="label" id="label-grid"></div>
         </div>
-
         <div class="circle c-wp hidden" id="ms-wp">
           <div class="val" id="val-wp">--</div>
-          <div class="label" id="label-wp">${config.wp_label}</div>
+          <div class="label" id="label-wp"></div>
         </div>
       </div>
 
-      <div class="stats-footer ${!isDailyVisible ? 'hidden' : ''}" id="ms-footer">
+      <div class="stats-footer" id="ms-footer">
         <div class="stat-block">
           <div class="chart-wrap" id="chart-solar"></div>
           <div class="stat-info">
@@ -137,14 +109,11 @@ class ModernSolarFlowCard extends HTMLElement {
       </div>
     `;
 
-    // Initialize ResizeObserver only once
-    if (!this._ro) {
-        this._ro = new ResizeObserver(() => {
-          if (this._resizeTimer) clearTimeout(this._resizeTimer);
-          this._resizeTimer = setTimeout(() => this._drawPaths(), 100);
-        });
-        this._ro.observe(this.content);
-    }
+    this._ro = new ResizeObserver(() => {
+      if (this._resizeTimer) clearTimeout(this._resizeTimer);
+      this._resizeTimer = setTimeout(() => this._drawPaths(), 100);
+    });
+    this._ro.observe(this.content);
   }
 
   _updateContent() {
@@ -153,8 +122,9 @@ class ModernSolarFlowCard extends HTMLElement {
     const hass = this._hass;
     const config = this.config;
     const isDark = hass.themes?.darkMode ?? false;
+    const isDailyVisible = config.show_daily_stats !== false;
 
-    // Update CSS variables (Theme)
+    // --- CSS ---
     const styleVars = isDark ? `
       --ms-bg: linear-gradient(180deg, #111827 0%, #000000 100%);
       --ms-card-border: 1px solid #1f2937;
@@ -196,7 +166,7 @@ class ModernSolarFlowCard extends HTMLElement {
           ${styleVars}
           position: relative;
           isolation: isolate;
-          height: ${config.show_daily_stats !== false ? '540px' : '440px'};
+          height: ${isDailyVisible ? '540px' : '440px'};
           background: var(--ms-bg);
           border: var(--ms-card-border);
           border-radius: 20px;
@@ -264,19 +234,18 @@ class ModernSolarFlowCard extends HTMLElement {
         .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
     `;
     
-    // Inject Styles only if changed (simple check)
     const styleEl = this.content.querySelector('#ms-style');
     if (styleEl && styleEl.innerHTML !== css) {
         styleEl.innerHTML = css;
     }
 
-    // Helper functions
+    // --- Helpers ---
     const fnum = (x) => { const v = parseFloat(x); return Number.isFinite(v) ? v : 0; };
     const state = (eid) => (eid && hass.states[eid] ? hass.states[eid].state : null);
     const getVal = (eid) => (eid ? fnum(state(eid)) : 0);
     const ent = (eid) => (eid ? hass.states[eid] : null);
 
-    // --- Data Calculation ---
+    // --- Data ---
     const solarVal = getVal(config.solar_entity);
     let gridVal = getVal(config.grid_entity);
     if (config.invert_grid) gridVal *= -1;
@@ -292,36 +261,7 @@ class ModernSolarFlowCard extends HTMLElement {
       homeVal = solarVal + gridVal + battPower; 
     }
 
-    const dSolar = getVal(config.solar_daily_entity);
-    const dGrid = getVal(config.grid_daily_entity); // Export or Import? Often Import/Export are separate.
-    // Assuming this is "Grid Energy" for stats.
-    const dSelf = getVal(config.self_daily_entity);
-    const dCons = getVal(config.consumption_daily_entity);
-
-    const pSolarSelf = dSolar > 0 ? (dSelf / dSolar) * 100 : 0;
-    const pConsPV = dCons > 0 ? (dSelf / dCons) * 100 : 0;
-
-    const priceEntity = ent(config.price_entity);
-    const priceVal = priceEntity ? fnum(priceEntity.state) : 0;
-    const priceUnit = priceEntity?.attributes?.unit_of_measurement ?? '';
-
-    // WP Logic
-    const wpEntity = ent(config.wp_entity);
-    let wpStateText = 'AUS';
-    let isWpRunning = false;
-    if (wpEntity) {
-      const s = String(wpEntity.state).toLowerCase();
-      const n = fnum(wpEntity.state);
-      if (!isNaN(parseFloat(wpEntity.state)) && Number.isFinite(n) && (n > 10 || n < -10)) {
-         wpStateText = `${Math.round(Math.abs(n))} W`;
-         isWpRunning = true;
-      } else if (['on', 'true', '1', 'running'].includes(s)) {
-        isWpRunning = true;
-        wpStateText = 'EIN';
-      }
-    }
-
-    // Flow Logic
+    // Logic
     const THRESHOLD = 10;
     const isSolarProducing = solarVal > THRESHOLD;
     const isGridImport = gridVal > THRESHOLD;
@@ -342,43 +282,51 @@ class ModernSolarFlowCard extends HTMLElement {
       if (isBattCharging) { g_to_b = true; s_to_b = false; }
     }
     if (isBattDischarging) b_to_h = true;
+    
+    // WP Logic
+    const wpEntity = ent(config.wp_entity);
+    let wpStateText = 'AUS';
+    let isWpRunning = false;
+    if (wpEntity) {
+      const s = String(wpEntity.state).toLowerCase();
+      const n = fnum(wpEntity.state);
+      if (!isNaN(parseFloat(wpEntity.state)) && Number.isFinite(n) && (n > 10 || n < -10)) {
+         wpStateText = `${Math.round(Math.abs(n))} W`;
+         isWpRunning = true;
+      } else if (['on', 'true', '1', 'running'].includes(s)) {
+        isWpRunning = true;
+        wpStateText = 'EIN';
+      }
+    }
     if (isWpRunning) h_to_wp = true;
 
-    // --- DOM Updates ---
+    // --- DOM Update Functions ---
     const setText = (id, text) => {
         const el = this.content.querySelector(id);
-        if (el) el.innerHTML = text; // innerHTML to support <span class="unit"> 
+        if (el) el.innerHTML = text; 
     };
     
-    const setClass = (id, cls, condition) => {
+    const setClass = (id, cls, active) => {
         const el = this.content.querySelector(id);
-        if (!el) return;
-        if (condition) el.classList.add(cls);
-        else el.classList.remove(cls);
+        if (el) el.classList.toggle(cls, active);
     };
 
-    const toggleClass = (id, cls, force) => {
-         const el = this.content.querySelector(id);
-         if (el) el.classList.toggle(cls, force);
-    }
-
-    // Values
+    // 1. Text & Labels
     setText('#val-solar', `${Math.abs(Math.round(solarVal))}<span class="unit">W</span>`);
     setText('#val-batt-soc', `${Math.abs(Math.round(battSoc))}<span class="unit">%</span>`);
     setText('#val-batt-power', `${Math.abs(Math.round(battPower))} W`);
     setText('#val-home', `${Math.abs(Math.round(homeVal))}<span class="unit">W</span>`);
     setText('#val-grid', `${Math.abs(Math.round(gridVal))}<span class="unit">W</span>`);
 
-    // Labels (in case config changed)
     setText('#label-solar', config.solar_label);
     setText('#label-batt', config.battery_label);
     setText('#label-home', config.home_label);
     setText('#label-grid', config.grid_label);
     setText('#label-wp', config.wp_label);
 
-    // Status Circles
+    // 2. Circle Colors
     const battEl = this.content.querySelector('#ms-batt');
-    battEl.className = 'circle c-batt'; // reset
+    battEl.className = 'circle c-batt';
     if (isBattDischarging) battEl.classList.add('status-green');
     else if (isBattCharging) battEl.classList.add('status-blue');
 
@@ -387,7 +335,7 @@ class ModernSolarFlowCard extends HTMLElement {
     if (isGridImport) gridEl.classList.add('status-red');
     else if (isGridExport) gridEl.classList.add('status-green');
 
-    // WP
+    // 3. WP Visibility & State
     const wpEl = this.content.querySelector('#ms-wp');
     const wpPathBg = this.content.querySelector('#p-bg-h-w');
     const wpPathFlow = this.content.querySelector('#p-flow-h-w');
@@ -396,42 +344,36 @@ class ModernSolarFlowCard extends HTMLElement {
         wpEl.classList.remove('hidden');
         if (wpPathBg) wpPathBg.classList.remove('hidden');
         if (wpPathFlow) wpPathFlow.classList.remove('hidden');
-        
         setText('#val-wp', wpStateText);
         wpEl.classList.toggle('status-wp', isWpRunning);
         
-        // WP Line Color
         let wpLineClass = 'flow-wp';
         if (h_to_wp) {
             if (isGridImport) wpLineClass = 'flow-red';
             else if (isBattDischarging || isSolarProducing) wpLineClass = 'flow-green';
         }
-        
-        if (wpPathFlow) {
-            wpPathFlow.setAttribute('class', `path-flow ${wpLineClass} ${h_to_wp ? 'active' : ''}`);
-        }
+        if (wpPathFlow) wpPathFlow.setAttribute('class', `path-flow ${wpLineClass} ${h_to_wp ? 'active' : ''}`);
     } else {
         wpEl.classList.add('hidden');
         if (wpPathBg) wpPathBg.classList.add('hidden');
         if (wpPathFlow) wpPathFlow.classList.add('hidden');
     }
 
-    // Price
+    // 4. Price Badge
     const priceBadge = this.content.querySelector('#ms-price-badge');
-    if (priceEntity) {
+    if (config.price_entity) {
         priceBadge.classList.remove('hidden');
-        setText('#ms-price-val', `${priceVal.toFixed(3)} ${priceUnit}`);
+        const priceUnit = ent(config.price_entity)?.attributes?.unit_of_measurement ?? '';
+        setText('#ms-price-val', `${(ent(config.price_entity) ? fnum(state(config.price_entity)) : 0).toFixed(3)} ${priceUnit}`);
     } else {
         priceBadge.classList.add('hidden');
     }
 
-    // Paths Active State
-    // We toggle the 'active' class. We do NOT rewrite the elements.
+    // 5. Flow Animation State
     const setPath = (id, active) => {
         const p = this.content.querySelector(id);
         if (p) p.classList.toggle('active', active);
     };
-
     setPath('#p-flow-s-h', s_to_h);
     setPath('#p-flow-s-b', s_to_b);
     setPath('#p-flow-s-g', s_to_g);
@@ -439,18 +381,28 @@ class ModernSolarFlowCard extends HTMLElement {
     setPath('#p-flow-g-h', g_to_h);
     setPath('#p-flow-g-b', g_to_b);
 
-    // Footer Stats
+    // 6. Footer Stats
     const footer = this.content.querySelector('#ms-footer');
-    if (config.show_daily_stats !== false) {
+    if (isDailyVisible) {
         footer.classList.remove('hidden');
+        const dSolar = getVal(config.solar_daily_entity);
+        const dGrid = getVal(config.grid_daily_entity);
+        const dSelf = getVal(config.self_daily_entity);
+        const dCons = getVal(config.consumption_daily_entity);
+
+        const pSolarSelf = dSolar > 0 ? (dSelf / dSolar) * 100 : 0;
+        const pConsPV = dCons > 0 ? (dSelf / dCons) * 100 : 0;
         
-        // Update Chart 1
+        const mkRing = (percent, colorMain, colorBg) => {
+            const p = Math.min(Math.max(percent, 0), 100);
+            return `<svg viewBox="0 0 36 36" class="donut-chart"><path class="donut-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" stroke="${colorBg}" /><path class="donut-seg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" stroke="${colorMain}" stroke-dasharray="${p}, 100" /></svg>`;
+        };
+
         setText('#stat-solar-val', `${dSolar.toFixed(1)} kWh`);
         setText('#stat-solar-self', `${dSelf.toFixed(1)} Eigen`);
         setText('#stat-solar-grid', `${(dSolar - dSelf).toFixed(1)} Netz`);
         this.content.querySelector('#chart-solar').innerHTML = mkRing(pSolarSelf, 'var(--ms-color-solar)', 'var(--ms-color-orange)');
 
-        // Update Chart 2
         setText('#stat-cons-val', `${dCons.toFixed(1)} kWh`);
         setText('#stat-cons-pv', `${pConsPV.toFixed(0)}% PV`);
         setText('#stat-cons-grid', `${(100 - pConsPV).toFixed(0)}% Netz`);
@@ -466,41 +418,48 @@ class ModernSolarFlowCard extends HTMLElement {
     const area = this.content.querySelector('.diagram-area');
     if (!svg || !area) return;
 
+    // Helper to get coordinates, handling hidden elements gracefully
     const getPos = (id) => {
-      const el = this.content.querySelector(id);
-      if (!el || el.classList.contains('hidden')) return null;
-      const r = el.getBoundingClientRect();
-      const ar = area.getBoundingClientRect();
-      return { x: (r.left - ar.left) + r.width / 2, y: (r.top - ar.top) + r.height / 2 };
+        const el = this.content.querySelector(id);
+        // If element is hidden (e.g. WP), we can't get dimensions, but layout shouldn't break.
+        if (!el || el.offsetParent === null) return null; 
+        const r = el.getBoundingClientRect();
+        const ar = area.getBoundingClientRect();
+        return { x: (r.left - ar.left) + r.width / 2, y: (r.top - ar.top) + r.height / 2 };
     };
 
-    const S = getPos('#ms-solar'), B = getPos('#ms-batt'), H = getPos('#ms-home'), G = getPos('#ms-grid'), W = getPos('#ms-wp');
-    if (!S || !B || !H || !G) return; // Wait for layout
+    const S = getPos('#ms-solar');
+    const B = getPos('#ms-batt');
+    const H = getPos('#ms-home');
+    const G = getPos('#ms-grid');
+    const W = getPos('#ms-wp');
+
+    if (!S || !B || !H || !G) return; 
 
     svg.setAttribute('viewBox', `0 0 ${area.clientWidth} ${area.clientHeight}`);
+    
     const line = (a, b) => `M ${a.x} ${a.y} L ${b.x} ${b.y}`;
     const curve = (a, b) => {
       const bend = 0.35;
       return `M ${a.x} ${a.y} C ${a.x} ${a.y + (b.y - a.y) * bend}, ${b.x} ${a.y + (b.y - a.y) * bend}, ${b.x} ${b.y}`;
     };
 
-    // Update 'd' attributes of existing paths
-    const setD = (id, d) => {
-        const bg = this.content.querySelector(id.replace('flow', 'bg'));
-        const flow = this.content.querySelector(id);
-        if (bg) bg.setAttribute('d', d);
-        if (flow) flow.setAttribute('d', d);
+    const updatePath = (id, d) => {
+        const p1 = this.content.querySelector(id.replace('flow', 'bg'));
+        const p2 = this.content.querySelector(id);
+        if (p1) p1.setAttribute('d', d);
+        if (p2) p2.setAttribute('d', d);
     }
 
-    setD('#p-flow-s-h', line(S, H));
-    setD('#p-flow-s-b', curve(S, B));
-    setD('#p-flow-s-g', curve(S, G));
-    setD('#p-flow-b-h', line(B, H));
-    setD('#p-flow-g-h', line(G, H));
-    setD('#p-flow-g-b', line(G, B));
+    updatePath('#p-flow-s-h', line(S, H));
+    updatePath('#p-flow-s-b', curve(S, B));
+    updatePath('#p-flow-s-g', curve(S, G));
+    updatePath('#p-flow-b-h', line(B, H));
+    updatePath('#p-flow-g-h', line(G, H));
+    updatePath('#p-flow-g-b', line(G, B));
     
     if (W) {
-        setD('#p-flow-h-w', line(H, W));
+        updatePath('#p-flow-h-w', line(H, W));
     }
   }
 
