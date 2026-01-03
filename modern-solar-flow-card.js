@@ -1,4 +1,4 @@
-const CARD_VERSION = '1.2.0';
+const CARD_VERSION = '1.2.1';
 
 console.info(
   `%c  MODERN-SOLAR-FLOW-CARD  \n%c  Version ${CARD_VERSION}    `,
@@ -34,7 +34,6 @@ class ModernSolarFlowCard extends HTMLElement {
       use_home_calc: true, 
       ...config
     };
-    // Force re-render if needed
     if (this.content) this._updateContent();
   }
 
@@ -52,7 +51,6 @@ class ModernSolarFlowCard extends HTMLElement {
         <div class="price-badge hidden" id="ms-price-badge"><span>⚡</span><span id="ms-price-val"></span></div>
         <svg id="ms-svg">
             <g id="ms-paths">
-                <!-- Order matters: BG first, then Flow on top -->
                 <path id="p-bg-s-h" class="path-bg"></path><path id="p-flow-s-h" class="path-flow"></path>
                 <path id="p-bg-s-b" class="path-bg"></path><path id="p-flow-s-b" class="path-flow flow-blue"></path>
                 <path id="p-bg-s-g" class="path-bg"></path><path id="p-flow-s-g" class="path-flow"></path>
@@ -62,12 +60,45 @@ class ModernSolarFlowCard extends HTMLElement {
                 <path id="p-bg-h-w" class="path-bg hidden"></path><path id="p-flow-h-w" class="path-flow hidden"></path>
             </g>
         </svg>
-        <div class="circle c-solar" id="ms-solar"><div class="val" id="val-solar">--</div><div class="label" id="label-solar"></div></div>
-        <div class="circle c-batt" id="ms-batt"><div class="val" id="val-batt-soc">--</div><div class="sub-val" id="val-batt-power">--</div><div class="label" id="label-batt"></div></div>
-        <div class="circle c-home" id="ms-home"><div class="home-ring-container" id="home-ring"></div><div class="val" id="val-home">--</div><div class="label" id="label-home"></div></div>
-        <div class="circle c-grid" id="ms-grid"><div class="val" id="val-grid">--</div><div class="label" id="label-grid"></div></div>
-        <div class="circle c-wp hidden" id="ms-wp"><div class="val" id="val-wp">--</div><div class="label" id="label-wp"></div></div>
+
+        <!-- SOLAR -->
+        <div class="circle c-solar" id="ms-solar">
+          <ha-icon icon="mdi:solar-power-variant" class="icon"></ha-icon>
+          <div class="val" id="val-solar">--</div>
+          <div class="label" id="label-solar"></div>
+        </div>
+
+        <!-- BATTERY -->
+        <div class="circle c-batt" id="ms-batt">
+          <ha-icon icon="mdi:battery-high" class="icon"></ha-icon>
+          <div class="val" id="val-batt-soc">--</div>
+          <div class="sub-val" id="val-batt-power">--</div>
+          <div class="label" id="label-batt"></div>
+        </div>
+        
+        <!-- HOME -->
+        <div class="circle c-home" id="ms-home">
+          <div class="home-ring-container" id="home-ring"></div>
+          <ha-icon icon="mdi:home-lightning-bolt" class="icon"></ha-icon>
+          <div class="val" id="val-home">--</div>
+          <div class="label" id="label-home"></div>
+        </div>
+
+        <!-- GRID -->
+        <div class="circle c-grid" id="ms-grid">
+          <ha-icon icon="mdi:transmission-tower" class="icon"></ha-icon>
+          <div class="val" id="val-grid">--</div>
+          <div class="label" id="label-grid"></div>
+        </div>
+
+        <!-- WP -->
+        <div class="circle c-wp hidden" id="ms-wp">
+          <ha-icon icon="mdi:heat-pump" class="icon-small"></ha-icon>
+          <div class="val" id="val-wp">--</div>
+          <div class="label" id="label-wp"></div>
+        </div>
       </div>
+
       <div class="stats-footer" id="ms-footer">
         <div class="stat-block"><div class="chart-wrap" id="chart-solar"></div><div class="stat-info"><div class="stat-main" id="stat-solar-val">--</div><div class="stat-sub"><span class="dot" style="background:var(--ms-color-solar)"></span><span id="stat-solar-self">--</span></div><div class="stat-sub"><span class="dot" style="background:var(--ms-color-orange)"></span><span id="stat-solar-grid">--</span></div></div></div>
         <div class="stat-block"><div class="chart-wrap" id="chart-cons"></div><div class="stat-info"><div class="stat-main" id="stat-cons-val">--</div><div class="stat-sub"><span class="dot" style="background:var(--ms-color-blue)"></span><span id="stat-cons-pv">--</span></div><div class="stat-sub"><span class="dot" style="background:var(--ms-color-red)"></span><span id="stat-cons-grid">--</span></div></div></div>
@@ -87,27 +118,38 @@ class ModernSolarFlowCard extends HTMLElement {
     const isDark = hass.themes?.darkMode ?? false;
     const isDailyVisible = config.show_daily_stats !== false;
 
-    const fnum = (x) => { if (typeof x === 'string') x = x.replace(',', '.'); const v = parseFloat(x); return Number.isFinite(v) ? v : 0; };
-    const state = (eid) => (eid && hass.states[eid] ? hass.states[eid].state : null);
-    const getVal = (eid) => (eid ? fnum(state(eid)) : 0);
-    const ent = (eid) => (eid ? hass.states[eid] : null);
-    const setText = (id, text) => { const el = this.content.querySelector(id); if (el) el.innerHTML = text; };
-    const mkRing = (percent, colorMain, colorBg, strokeWidth) => {
-        const p = Math.min(Math.max(percent, 0), 100);
-        return `<svg viewBox="0 0 36 36" class="donut-chart"><path class="donut-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" stroke="${colorBg}" stroke-width="${strokeWidth}" /><path class="donut-seg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" stroke="${colorMain}" stroke-width="${strokeWidth}" stroke-dasharray="${p}, 100" /></svg>`;
-    };
-
     const styleVars = isDark ? `
       --ms-bg: linear-gradient(180deg, #111827 0%, #000000 100%); --ms-card-border: 1px solid #1f2937; --ms-shadow: 0 4px 15px rgba(0,0,0,0.5); --ms-circle-bg: #1f2937; --ms-circle-border: 3px solid #374151; --ms-text-val: #ffffff; --ms-text-label: #9ca3af; --ms-text-unit: #6b7280; --ms-path-bg: #374151; --ms-bar-bg: rgba(31, 41, 55, 0.6); --ms-color-solar: #4ade80; --ms-color-red: #f87171; --ms-color-blue: #60a5fa; --ms-color-orange: #fb8c00; --ms-color-wp: #fb8c00; --ms-glow-green: drop-shadow(0 0 5px rgba(74, 222, 128, 0.8)); --ms-glow-red: drop-shadow(0 0 5px rgba(248, 113, 113, 0.8)); --ms-glow-blue: drop-shadow(0 0 5px rgba(96, 165, 250, 0.8)); --ms-glow-orange: drop-shadow(0 0 5px rgba(251, 140, 0, 0.8));
     ` : `
       --ms-bg: linear-gradient(180deg, #e1f5fe 0%, #ffffff 100%); --ms-card-border: none; --ms-shadow: 0 4px 15px rgba(0,0,0,0.05); --ms-circle-bg: #ffffff; --ms-circle-border: 4px solid #e0e0e0; --ms-text-val: #333333; --ms-text-label: #666666; --ms-text-unit: #888888; --ms-path-bg: #e0e0e0; --ms-bar-bg: rgba(255, 255, 255, 0.7); --ms-color-solar: #66bb6a; --ms-color-red: #ef5350; --ms-color-blue: #42a5f5; --ms-color-orange: #ff9800; --ms-color-wp: #ff9800; --ms-glow-green: none; --ms-glow-red: none; --ms-glow-blue: none; --ms-glow-orange: none;
     `;
-    const css = `.solar-root { ${styleVars} position: relative; isolation: isolate; height: ${isDailyVisible ? '540px' : '440px'}; background: var(--ms-bg); border: var(--ms-card-border); border-radius: 20px; box-shadow: var(--ms-shadow); overflow: hidden; display: flex; flex-direction: column; font-family: 'Roboto', sans-serif; box-sizing: border-box; transition: height 0.3s ease; } .diagram-area { position: relative; flex-grow: 1; width: 100%; } .price-badge { position: absolute; top: 15px; right: 15px; background: var(--ms-circle-bg); opacity: 0.9; border: 1px solid var(--ms-text-unit); padding: 4px 10px; border-radius: 15px; font-size: 12px; font-weight: 700; color: var(--ms-text-val); z-index: 50; display: flex; align-items: center; gap: 6px; } .hidden { display: none !important; } .circle { position: absolute; background: var(--ms-circle-bg); border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; border: var(--ms-circle-border); box-shadow: 0 8px 20px rgba(0,0,0,0.12); z-index: 20; transition: border-color 0.3s ease; } .c-solar { top: 20px; left: 50%; transform: translateX(-50%); width: 115px; height: 115px; border-color: var(--ms-color-solar); } .c-batt { top: 180px; left: 10px; width: 95px; height: 95px; } .c-home { top: 180px; left: 50%; transform: translateX(-50%); width: 95px; height: 95px; border: none; } .c-grid { top: 180px; right: 10px; width: 95px; height: 95px; } .c-wp { top: 320px; left: 50%; transform: translateX(-50%); width: 70px; height: 70px; border-color: var(--ms-color-wp); } .home-ring-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; transform: rotate(-90deg); } .val { font-size: 20px; font-weight: 900; color: var(--ms-text-val); line-height: 1.1; z-index: 5; } .unit { font-size: 12px; font-weight: 500; color: var(--ms-text-unit); margin-left: 2px; } .sub-val { font-size: 13px; font-weight: 600; color: var(--ms-text-unit); margin-top: 2px; z-index: 5; } .label { font-size: 10px; font-weight: 700; color: var(--ms-text-label); text-transform: uppercase; margin-top: 2px; z-index: 5; } .c-solar .val { font-size: 28px; } .c-solar .label { color: var(--ms-color-solar); } 
-    #ms-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; } 
+    const css = `.solar-root { ${styleVars} position: relative; isolation: isolate; height: ${isDailyVisible ? '540px' : '440px'}; background: var(--ms-bg); border: var(--ms-card-border); border-radius: 20px; box-shadow: var(--ms-shadow); overflow: hidden; display: flex; flex-direction: column; font-family: 'Roboto', sans-serif; box-sizing: border-box; transition: height 0.3s ease; } .diagram-area { position: relative; flex-grow: 1; width: 100%; } .price-badge { position: absolute; top: 15px; right: 15px; background: var(--ms-circle-bg); opacity: 0.9; border: 1px solid var(--ms-text-unit); padding: 4px 10px; border-radius: 15px; font-size: 12px; font-weight: 700; color: var(--ms-text-val); z-index: 50; display: flex; align-items: center; gap: 6px; } .hidden { display: none !important; } 
+    .circle { position: absolute; background: var(--ms-circle-bg); border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; border: var(--ms-circle-border); box-shadow: 0 8px 20px rgba(0,0,0,0.12); z-index: 20; transition: border-color 0.3s ease; padding: 5px; box-sizing: border-box; } 
+    .icon { --mdc-icon-size: 24px; color: var(--ms-text-label); margin-bottom: 2px; } .icon-small { --mdc-icon-size: 18px; color: var(--ms-text-label); }
+    .c-solar { top: 20px; left: 50%; transform: translateX(-50%); width: 115px; height: 115px; border-color: var(--ms-color-solar); } 
+    .c-batt { top: 180px; left: 10px; width: 95px; height: 95px; } 
+    .c-home { top: 180px; left: 50%; transform: translateX(-50%); width: 95px; height: 95px; border: none; } 
+    .c-grid { top: 180px; right: 10px; width: 95px; height: 95px; } 
+    .c-wp { top: 320px; left: 50%; transform: translateX(-50%); width: 75px; height: 75px; border-color: var(--ms-color-wp); } 
+    .home-ring-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; transform: rotate(-90deg); } 
+    .status-red { border-color: var(--ms-color-red) !important; } .status-green { border-color: var(--ms-color-solar) !important; } .status-blue { border-color: var(--ms-color-blue) !important; } .status-wp { border-color: var(--ms-color-wp) !important; } 
+    .val { font-size: 18px; font-weight: 900; color: var(--ms-text-val); line-height: 1; z-index: 5; } 
+    .unit { font-size: 11px; font-weight: 500; color: var(--ms-text-unit); margin-left: 1px; } 
+    .sub-val { font-size: 12px; font-weight: 600; color: var(--ms-text-unit); margin-top: 1px; z-index: 5; } 
+    .label { font-size: 9px; font-weight: 700; color: var(--ms-text-label); text-transform: uppercase; margin-top: 1px; z-index: 5; } 
+    .c-solar .val { font-size: 26px; } #ms-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; } 
     .path-bg { fill: none; stroke: var(--ms-path-bg); stroke-width: 4px; opacity: 0.2; stroke-linecap: round; } 
     .path-flow { fill: none; stroke: var(--ms-color-solar); stroke-width: 5px; stroke-dasharray: 12; opacity: 0; stroke-linecap: round; transition: stroke 0.3s ease, opacity 0.3s ease; } 
-    .path-flow.flow-red { stroke: var(--ms-color-red) !important; filter: var(--ms-glow-red); } .path-flow.flow-green { stroke: var(--ms-color-solar) !important; filter: var(--ms-glow-green); } .path-flow.flow-blue { stroke: var(--ms-color-blue) !important; filter: var(--ms-glow-blue); } .path-flow.flow-wp { stroke: var(--ms-color-wp) !important; filter: var(--ms-glow-orange); } .active { opacity: 1; animation: dash 1s linear infinite; } @keyframes dash { from { stroke-dashoffset: 24; } to { stroke-dashoffset: 0; } } .stats-footer { height: 100px; background: var(--ms-bar-bg); backdrop-filter: blur(5px); border-top: 1px solid var(--ms-text-unit); display: flex; justify-content: space-around; align-items: center; padding: 0 10px; z-index: 30; } .stat-block { width: 45%; display: flex; align-items: center; justify-content: center; gap: 10px; } .chart-wrap { width: 55px; height: 55px; } .donut-chart { width: 100%; height: 100%; transform: rotate(-90deg); } .donut-bg { fill: none; stroke-width: 4; } .donut-seg { fill: none; stroke-width: 4; stroke-linecap: round; } .stat-info { display: flex; flex-direction: column; justify-content: center; } .stat-main { font-size: 15px; font-weight: 900; color: var(--ms-text-val); } .stat-sub { font-size: 10px; color: var(--ms-text-unit); display: flex; align-items: center; gap: 5px; } .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }`;
+    .path-flow.flow-red { stroke: var(--ms-color-red) !important; filter: var(--ms-glow-red); } .path-flow.flow-green { stroke: var(--ms-color-solar) !important; filter: var(--ms-glow-green); } .path-flow.flow-blue { stroke: var(--ms-color-blue) !important; filter: var(--ms-glow-blue); } .path-flow.flow-wp { stroke: var(--ms-color-wp) !important; filter: var(--ms-glow-orange); } .active { opacity: 1; animation: dash 1s linear infinite; } @keyframes dash { from { stroke-dashoffset: 24; } to { stroke-dashoffset: 0; } } 
+    .stats-footer { height: 100px; background: var(--ms-bar-bg); backdrop-filter: blur(5px); border-top: 1px solid var(--ms-text-unit); display: flex; justify-content: space-around; align-items: center; padding: 0 10px; z-index: 30; } .stat-block { width: 45%; display: flex; align-items: center; justify-content: center; gap: 10px; } .chart-wrap { width: 55px; height: 55px; } .donut-chart { width: 100%; height: 100%; transform: rotate(-90deg); } .donut-bg { fill: none; stroke-width: 4; } .donut-seg { fill: none; stroke-width: 4; stroke-linecap: round; } .stat-info { display: flex; flex-direction: column; justify-content: center; } .stat-main { font-size: 15px; font-weight: 900; color: var(--ms-text-val); } .stat-sub { font-size: 10px; color: var(--ms-text-unit); display: flex; align-items: center; gap: 5px; } .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }`;
     const styleEl = this.content.querySelector('#ms-style'); if (styleEl && styleEl.innerHTML !== css) styleEl.innerHTML = css;
+
+    const fnum = (x) => { if (typeof x === 'string') x = x.replace(',', '.'); const v = parseFloat(x); return Number.isFinite(v) ? v : 0; };
+    const state = (eid) => (eid && hass.states[eid] ? hass.states[eid].state : null);
+    const getVal = (eid) => (eid ? fnum(state(eid)) : 0);
+    const ent = (eid) => (eid ? hass.states[eid] : null);
+    const setText = (id, text) => { const el = this.content.querySelector(id); if (el) el.innerHTML = text; };
+    const mkRing = (percent, colorMain, colorBg, strokeWidth) => { const p = Math.min(Math.max(percent, 0), 100); return `<svg viewBox="0 0 36 36" class="donut-chart"><path class="donut-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" stroke="${colorBg}" stroke-width="${strokeWidth}" /><path class="donut-seg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" stroke="${colorMain}" stroke-width="${strokeWidth}" stroke-dasharray="${p}, 100" /></svg>`; };
 
     const solarVal = getVal(config.solar_entity); let gridVal = getVal(config.grid_entity); if (config.invert_grid) gridVal *= -1;
     let battPower = getVal(config.battery_power_entity); if (config.invert_battery) battPower *= -1; 
@@ -134,8 +176,8 @@ class ModernSolarFlowCard extends HTMLElement {
     if (isGridImport) gridEl.classList.add('status-red'); else if (isGridExport) gridEl.classList.add('status-green');
 
     const homeRing = this.content.querySelector('#home-ring');
-    if (homeVal > 0) { const importVal = isGridImport ? gridVal : 0; const autarky = Math.max(0, Math.min(100, ((homeVal - importVal) / homeVal) * 100)); homeRing.innerHTML = mkRing(autarky, 'var(--ms-color-solar)', 'var(--ms-color-red)', 3.5); } 
-    else { homeRing.innerHTML = mkRing(100, 'var(--ms-color-solar)', 'var(--ms-color-solar)', 3.5); }
+    if (homeVal > 0) { const importVal = isGridImport ? gridVal : 0; const autarky = Math.max(0, Math.min(100, ((homeVal - importVal) / homeVal) * 100)); homeRing.innerHTML = mkRing(autarky, 'var(--ms-color-solar)', 'var(--ms-color-red)', 2.5); } 
+    else { homeRing.innerHTML = mkRing(100, 'var(--ms-color-solar)', 'var(--ms-color-solar)', 2.5); }
 
     const wpEntity = ent(config.wp_entity);
     if (wpEntity) {
@@ -147,14 +189,13 @@ class ModernSolarFlowCard extends HTMLElement {
       wpEl.classList.remove('hidden'); wpPathBg.classList.remove('hidden'); wpPathFlow.classList.remove('hidden');
       setText('#val-wp', isWpRunning ? (hasPower ? `${Math.round(Math.abs(n))} W` : 'EIN') : 'AUS');
       wpEl.classList.toggle('status-wp', isWpRunning);
-      let wpLineClass = 'flow-wp'; if (isWpRunning) { if (isGridImport) wpLineClass = 'flow-red'; else wpLineClass = 'flow-green'; } 
+      let wpLineClass = 'flow-wp'; if (isWpRunning) { if (isGridImport) wpLineClass = 'flow-red'; else wpLineClass = 'flow-green'; }
       wpPathFlow.setAttribute('class', `path-flow ${wpLineClass} ${isWpRunning ? 'active' : ''}`);
     } else {
       this.content.querySelector('#ms-wp').classList.add('hidden'); this.content.querySelector('#p-bg-h-w').classList.add('hidden'); this.content.querySelector('#p-flow-h-w').classList.add('hidden');
     }
 
-    const priceBadge = this.content.querySelector('#ms-price-badge');
-    if (config.price_entity) { priceBadge.classList.remove('hidden'); setText('#ms-price-val', `${getVal(config.price_entity).toFixed(3)} ${ent(config.price_entity)?.attributes?.unit_of_measurement ?? ''}`); } else { priceBadge.classList.add('hidden'); }
+    if (config.price_entity) { this.content.querySelector('#ms-price-badge').classList.remove('hidden'); setText('#ms-price-val', `${getVal(config.price_entity).toFixed(3)} ${ent(config.price_entity)?.attributes?.unit_of_measurement ?? ''}`); } else { this.content.querySelector('#ms-price-badge').classList.add('hidden'); }
 
     const setPath = (id, active) => { const p = this.content.querySelector(id); if (p) p.classList.toggle('active', active); };
     setPath('#p-flow-s-h', s_to_h); setPath('#p-flow-s-b', s_to_b); setPath('#p-flow-s-g', s_to_g); setPath('#p-flow-b-h', b_to_h); setPath('#p-flow-g-h', g_to_h); setPath('#p-flow-g-b', g_to_b);
@@ -181,23 +222,13 @@ class ModernSolarFlowCard extends HTMLElement {
     const PAD = 5; 
     const updatePath = (id, d) => { const p1 = this.content.querySelector(id.replace('flow', 'bg')); const p2 = this.content.querySelector(id); if (p1) p1.setAttribute('d', d); if (p2) p2.setAttribute('d', d); }
     
-    // Solar -> Home (Top)
     updatePath('#p-flow-s-h', `M ${S.x} ${S.y + S.r + PAD} L ${H.x} ${H.y - H.r - PAD}`);
-    
-    // Solar -> Batt (Curve)
     const curveTop = (x1, y1, x2, y2) => { const dy = (y2 - y1) * 0.6; return `M ${x1} ${y1} C ${x1} ${y1 + dy}, ${x2} ${y2 - dy}, ${x2} ${y2}`; };
     updatePath('#p-flow-s-b', curveTop(S.x, S.y + S.r + PAD, B.x, B.y - B.r - PAD));
     updatePath('#p-flow-s-g', curveTop(S.x, S.y + S.r + PAD, G.x, G.y - G.r - PAD));
-
-    // Batt -> Home (Left)
     updatePath('#p-flow-b-h', `M ${B.x + B.r + PAD} ${B.y} L ${H.x - H.r - PAD} ${H.y}`);
-    
-    // Grid -> Home (Right)
     updatePath('#p-flow-g-h', `M ${G.x - G.r - PAD} ${G.y} L ${H.x + H.r + PAD} ${H.y}`);
-    
-    // Grid -> Batt (Straight line behind home)
     updatePath('#p-flow-g-b', `M ${G.x - G.r - PAD} ${G.y} L ${B.x + B.r + PAD} ${B.y}`);
-    
     if (W) updatePath('#p-flow-h-w', `M ${H.x} ${H.y + H.r + PAD} L ${W.x} ${W.y - W.r - PAD}`);
   }
 
