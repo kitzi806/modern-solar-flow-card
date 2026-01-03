@@ -1,4 +1,4 @@
-const CARD_VERSION = '1.1.2';
+const CARD_VERSION = '1.1.3';
 
 console.info(
   `%c  MODERN-SOLAR-FLOW-CARD  \n%c  Version ${CARD_VERSION}    `,
@@ -194,11 +194,11 @@ class ModernSolarFlowCard extends HTMLElement {
         }
         .c-solar { top: 20px; left: 50%; transform: translateX(-50%); width: 115px; height: 115px; border-color: var(--ms-color-solar); }
         .c-batt  { top: 180px; left: 10px; width: 95px; height: 95px; }
-        .c-home  { top: 180px; left: 50%; transform: translateX(-50%); width: 95px; height: 95px; border: none; overflow: hidden; }
+        .c-home  { top: 180px; left: 50%; transform: translateX(-50%); width: 95px; height: 95px; border: none; }
         .c-grid  { top: 180px; right: 10px; width: 95px; height: 95px; }
         .c-wp    { top: 320px; left: 50%; transform: translateX(-50%); width: 70px; height: 70px; border-color: var(--ms-color-wp); }
         
-        .home-ring-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; }
+        .home-ring-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; transform: rotate(-90deg); }
 
         .status-red { border-color: var(--ms-color-red) !important; }
         .status-green { border-color: var(--ms-color-solar) !important; }
@@ -260,39 +260,25 @@ class ModernSolarFlowCard extends HTMLElement {
     const isBattDischarging = battPower > THRESHOLD;
     const isBattCharging = battPower < -THRESHOLD;
 
-    let s_to_h = false, s_to_b = false, s_to_g = false, g_to_h = false, b_to_h = false, g_to_b = false;
+    let s_to_h = false, s_to_b = false, s_to_g = false, g_to_h = false, b_to_h = false, g_to_b = false, h_to_wp = false;
     if (isSolarProducing) { s_to_h = true; if (isBattCharging) s_to_b = true; if (isGridExport) s_to_g = true; }
     if (isGridImport) { g_to_h = true; if (isBattCharging) g_to_b = true; }
     if (isBattDischarging) b_to_h = true;
 
-    const mkRing = (percent, colorMain, colorBg, strokeWidth = 4) => {
+    // Home Autarky Ring
+    const homeRing = this.content.querySelector('#home-ring');
+    const mkRing = (percent, colorMain, colorBg, strokeWidth) => {
         const p = Math.min(Math.max(percent, 0), 100);
         return `<svg viewBox="0 0 36 36" class="donut-chart"><path class="donut-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" stroke="${colorBg}" stroke-width="${strokeWidth}" /><path class="donut-seg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" stroke="${colorMain}" stroke-width="${strokeWidth}" stroke-dasharray="${p}, 100" /></svg>`;
     };
 
-    const setText = (id, text) => { const el = this.content.querySelector(id); if (el) el.innerHTML = text; };
-    setText('#val-solar', `${Math.abs(Math.round(solarVal))}<span class="unit">W</span>`);
-    setText('#val-batt-soc', `${Math.abs(Math.round(battSoc))}<span class="unit">%</span>`);
-    setText('#val-batt-power', `${Math.abs(Math.round(battPower))} W`);
-    setText('#val-home', `${Math.abs(Math.round(homeVal))}<span class="unit">W</span>`);
-    setText('#val-grid', `${Math.abs(Math.round(gridVal))}<span class="unit">W</span>`);
-    setText('#label-solar', config.solar_label); setText('#label-batt', config.battery_label); setText('#label-home', config.home_label); setText('#label-grid', config.grid_label); setText('#label-wp', config.wp_label);
-
-    const battEl = this.content.querySelector('#ms-batt');
-    battEl.className = 'circle c-batt';
-    if (isBattDischarging) battEl.classList.add('status-green'); else if (isBattCharging) battEl.classList.add('status-blue');
-    const gridEl = this.content.querySelector('#ms-grid');
-    gridEl.className = 'circle c-grid';
-    if (isGridImport) gridEl.classList.add('status-red'); else if (isGridExport) gridEl.classList.add('status-green');
-
-    // Home Autarky Ring
-    const homeRing = this.content.querySelector('#home-ring');
     if (homeVal > 0) {
         const importVal = isGridImport ? gridVal : 0;
         const autarky = Math.max(0, Math.min(100, ((homeVal - importVal) / homeVal) * 100));
-        homeRing.innerHTML = mkRing(autarky, 'var(--ms-color-solar)', 'var(--ms-color-red)', 12);
+        // Use thinner stroke (4) for the home ring
+        homeRing.innerHTML = mkRing(autarky, 'var(--ms-color-solar)', 'var(--ms-color-red)', 3.5);
     } else {
-        homeRing.innerHTML = mkRing(100, 'var(--ms-color-solar)', 'var(--ms-color-solar)', 12);
+        homeRing.innerHTML = mkRing(100, 'var(--ms-color-solar)', 'var(--ms-color-solar)', 3.5);
     }
 
     const wpEntity = ent(config.wp_entity);
@@ -314,10 +300,25 @@ class ModernSolarFlowCard extends HTMLElement {
         wpPathFlow.setAttribute('class', `path-flow ${wpLineClass} ${isWpRunning ? 'active' : ''}`);
     } else { wpEl.classList.add('hidden'); wpPathBg.classList.add('hidden'); wpPathFlow.classList.add('hidden'); }
 
+    const setText = (id, text) => { const el = this.content.querySelector(id); if (el) el.innerHTML = text; };
+    setText('#val-solar', `${Math.abs(Math.round(solarVal))}<span class="unit">W</span>`);
+    setText('#val-batt-soc', `${Math.abs(Math.round(battSoc))}<span class="unit">%</span>`);
+    setText('#val-batt-power', `${Math.abs(Math.round(battPower))} W`);
+    setText('#val-home', `${Math.abs(Math.round(homeVal))}<span class="unit">W</span>`);
+    setText('#val-grid', `${Math.abs(Math.round(gridVal))}<span class="unit">W</span>`);
+    setText('#label-solar', config.solar_label); setText('#label-batt', config.battery_label); setText('#label-home', config.home_label); setText('#label-grid', config.grid_label); setText('#label-wp', config.wp_label);
+
+    const battEl = this.content.querySelector('#ms-batt');
+    battEl.className = 'circle c-batt';
+    if (isBattDischarging) battEl.classList.add('status-green'); else if (isBattCharging) battEl.classList.add('status-blue');
+    const gridEl = this.content.querySelector('#ms-grid');
+    gridEl.className = 'circle c-grid';
+    if (isGridImport) gridEl.classList.add('status-red'); else if (isGridExport) gridEl.classList.add('status-green');
+
     const priceBadge = this.content.querySelector('#ms-price-badge');
     if (config.price_entity) {
         priceBadge.classList.remove('hidden'); const priceUnit = ent(config.price_entity)?.attributes?.unit_of_measurement ?? '';
-        setText('#ms-price-val', `${getVal(config.price_entity).toFixed(3)} ${priceUnit}`);
+        setText('#ms-price-val', `${(ent(config.price_entity) ? fnum(state(config.price_entity)) : 0).toFixed(3)} ${priceUnit}`);
     } else { priceBadge.classList.add('hidden'); }
 
     const setPath = (id, active) => { const p = this.content.querySelector(id); if (p) p.classList.toggle('active', active); };
@@ -329,9 +330,9 @@ class ModernSolarFlowCard extends HTMLElement {
         const dSolar = getVal(config.solar_daily_entity); const dGrid = getVal(config.grid_daily_entity); const dSelf = getVal(config.self_daily_entity); const dCons = getVal(config.consumption_daily_entity);
         const pSolarSelf = dSolar > 0 ? (dSelf / dSolar) * 100 : 0; const pConsPV = dCons > 0 ? (dSelf / dCons) * 100 : 0;
         setText('#stat-solar-val', `${dSolar.toFixed(1)} kWh`); setText('#stat-solar-self', `${dSelf.toFixed(1)} Eigen`); setText('#stat-solar-grid', `${(dSolar - dSelf).toFixed(1)} Netz`);
-        this.content.querySelector('#chart-solar').innerHTML = mkRing(pSolarSelf, 'var(--ms-color-solar)', 'var(--ms-color-orange)');
+        this.content.querySelector('#chart-solar').innerHTML = mkRing(pSolarSelf, 'var(--ms-color-solar)', 'var(--ms-color-orange)', 4);
         setText('#stat-cons-val', `${dCons.toFixed(1)} kWh`); setText('#stat-cons-pv', `${pConsPV.toFixed(0)}% PV`); setText('#stat-cons-grid', `${(100 - pConsPV).toFixed(0)}% Netz`);
-        this.content.querySelector('#chart-cons').innerHTML = mkRing(pConsPV, 'var(--ms-color-blue)', 'var(--ms-color-red)');
+        this.content.querySelector('#chart-cons').innerHTML = mkRing(pConsPV, 'var(--ms-color-blue)', 'var(--ms-color-red)', 4);
     } else { footer.classList.add('hidden'); }
   }
 
@@ -340,15 +341,78 @@ class ModernSolarFlowCard extends HTMLElement {
     const svg = this.content.querySelector('#ms-svg');
     const area = this.content.querySelector('.diagram-area');
     if (!svg || !area) return;
-    const getPos = (id) => { const el = this.content.querySelector(id); if (!el || el.offsetParent === null) return null; const r = el.getBoundingClientRect(); const ar = area.getBoundingClientRect(); return { x: (r.left - ar.left) + r.width / 2, y: (r.top - ar.top) + r.height / 2 }; };
+    const getPos = (id) => { const el = this.content.querySelector(id); if (!el || el.offsetParent === null) return null; const r = el.getBoundingClientRect(); const ar = area.getBoundingClientRect(); return { x: (r.left - ar.left) + r.width / 2, y: (r.top - ar.top) + r.height / 2, r: r.width / 2 }; };
     const S = getPos('#ms-solar'), B = getPos('#ms-batt'), H = getPos('#ms-home'), G = getPos('#ms-grid'), W = getPos('#ms-wp');
     if (!S || !B || !H || !G) return; 
     svg.setAttribute('viewBox', `0 0 ${area.clientWidth} ${area.clientHeight}`);
+    
+    // Function to calculate point on circle surface
+    const pointOnCircle = (center, target, radius = 0) => {
+        const angle = Math.atan2(target.y - center.y, target.x - center.x);
+        return {
+            x: center.x + Math.cos(angle) * (center.r + radius), // Radius + Padding
+            y: center.y + Math.sin(angle) * (center.r + radius)
+        };
+    };
+
+    // We adjust endpoints to stop at the circle border (Radius ~47.5px + 5px padding)
+    const PAD = 5; 
+    // For Home, we want lines to stop exactly at the ring.
+    // Solar -> Home (Top of Home)
+    // Battery -> Home (Left of Home)
+    // Grid -> Home (Right of Home)
+    // Home -> WP (Bottom of Home)
+    
+    // But since paths are dynamic curves, we use simple line logic for endpoints:
+    
+    const S_H_end = { x: H.x, y: H.y - H.r - PAD }; // Top of Home
+    const S_start = { x: S.x, y: S.y + S.r + PAD }; // Bottom of Solar
+    
+    const B_H_end = { x: H.x - H.r - PAD, y: H.y }; // Left of Home
+    const B_start = { x: B.x + B.r + PAD, y: B.y }; // Right of Batt
+    
+    const G_H_end = { x: H.x + H.r + PAD, y: H.y }; // Right of Home
+    const G_start = { x: G.x - G.r - PAD, y: G.y }; // Left of Grid
+    
+    const H_W_start = { x: H.x, y: H.y + H.r + PAD }; // Bottom of Home
+    
     const line = (a, b) => `M ${a.x} ${a.y} L ${b.x} ${b.y}`;
-    const curve = (a, b) => { const bend = 0.35; return `M ${a.x} ${a.y} C ${a.x} ${a.y + (b.y - a.y) * bend}, ${b.x} ${a.y + (b.y - a.y) * bend}, ${b.x} ${b.y}`; };
+    const curve = (a, b, bend = 0.35) => { const cy = a.y + (b.y - a.y) * bend; return `M ${a.x} ${a.y} C ${a.x} ${cy}, ${b.x} ${cy}, ${b.x} ${b.y}` };
+
     const updatePath = (id, d) => { const p1 = this.content.querySelector(id.replace('flow', 'bg')); const p2 = this.content.querySelector(id); if (p1) p1.setAttribute('d', d); if (p2) p2.setAttribute('d', d); }
-    updatePath('#p-flow-s-h', line(S, H)); updatePath('#p-flow-s-b', curve(S, B)); updatePath('#p-flow-s-g', curve(S, G)); updatePath('#p-flow-b-h', line(B, H)); updatePath('#p-flow-g-h', line(G, H)); updatePath('#p-flow-g-b', line(G, B));
-    if (W) updatePath('#p-flow-h-w', line(H, W));
+    
+    // S -> H
+    updatePath('#p-flow-s-h', line(S_start, S_H_end));
+    
+    // S -> B (Curve)
+    // Start bottom of Solar, End top of Batt? Or Center? 
+    // Let's keep using Centers for curves but clip start/end? 
+    // It's easier to just use centers for curves as they don't overlap much visually with the circle itself usually.
+    // But for cleaner look, let's try to target top of B and G.
+    const B_top = { x: B.x, y: B.y - B.r - PAD };
+    const G_top = { x: G.x, y: G.y - G.r - PAD };
+    updatePath('#p-flow-s-b', `M ${S.x} ${S.y + S.r} C ${S.x} ${B.y - 50}, ${B.x} ${B.y - 50}, ${B.x} ${B_top.y}`);
+    updatePath('#p-flow-s-g', `M ${S.x} ${S.y + S.r} C ${S.x} ${G.y - 50}, ${G.x} ${G.y - 50}, ${G.x} ${G_top.y}`);
+
+    // B -> H
+    updatePath('#p-flow-b-h', line(B_start, B_H_end));
+    
+    // G -> H
+    updatePath('#p-flow-g-h', line(G_start, G_H_end));
+    
+    // G -> B (Direct line at bottom?) - currently line(G, B)
+    // To avoid crossing Home, we might need a curve downwards?
+    // Current implementation: line(G, B). This crosses Home if they are aligned.
+    // Actually, in CSS Grid they are left/right. Home is in middle. 
+    // So G->B goes THROUGH Home. That's bad.
+    // Let's curve it below Home.
+    const y_low = H.y + H.r + 20;
+    updatePath('#p-flow-g-b', `M ${G.x} ${G.y + G.r} C ${G.x} ${y_low}, ${B.x} ${y_low}, ${B.x} ${B.y + B.r}`);
+
+    if (W) {
+        const W_top = { x: W.x, y: W.y - W.r - PAD };
+        updatePath('#p-flow-h-w', line(H_W_start, W_top));
+    }
   }
 
   static getConfigElement() { return document.createElement('modern-solar-flow-card-editor'); }
