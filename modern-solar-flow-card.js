@@ -1,4 +1,4 @@
-const CARD_VERSION = '0.4.0';
+const CARD_VERSION = '0.4.1';
 
 console.info(
   `%c  MODERN-SOLAR-FLOW-CARD  \n%c  Version ${CARD_VERSION}    `,
@@ -107,29 +107,37 @@ class ModernSolarFlowCard extends HTMLElement {
     this._ro.observe(this.content);
   }
 
+  // --- HELPERS (Now Class Methods) ---
+  _fnum(x) { 
+    if (typeof x === 'string') x = x.replace(',', '.'); 
+    const v = parseFloat(x); return Number.isFinite(v) ? v : 0; 
+  }
+  _state(eid) { return (eid && this._hass && this._hass.states[eid] ? this._hass.states[eid].state : null); }
+  _getVal(eid) { return this._fnum(this._state(eid)); }
+  _ent(eid) { return (eid && this._hass ? this._hass.states[eid] : null); }
+  
+  _setText(id, text) { 
+    const el = this.content.querySelector(id); 
+    if (el) el.innerHTML = text; 
+  }
+  
+  _mkRing(percent, colorMain, colorBg, strokeWidth) {
+    const p = Math.min(Math.max(percent, 0), 100);
+    const C = 282.743;
+    const dash = (p / 100) * C;
+    return `<svg viewBox="0 0 100 100" class="donut-chart" style="width:100%; height:100%;">
+        <path d="M50 5 a 45 45 0 0 1 0 90 a 45 45 0 0 1 0 -90" stroke="${colorBg}" stroke-width="${strokeWidth}" fill="none" />
+        <path d="M50 5 a 45 45 0 0 1 0 90 a 45 45 0 0 1 0 -90" stroke="${colorMain}" stroke-width="${strokeWidth}" stroke-dasharray="${dash}, ${C}" fill="none" stroke-linecap="round" />
+    </svg>`;
+  }
+
   _updateContent() {
     if (!this.config || !this._hass || !this.content) return;
-    const hass = this._hass; const config = this.config;
-    const isDark = hass.themes?.darkMode ?? false;
+    const config = this.config;
+    const isDark = this._hass.themes?.darkMode ?? false;
     const isDailyVisible = config.show_daily_stats !== false;
 
-    // --- 1. HELPERS ---
-    const fnum = (x) => { if (typeof x === 'string') x = x.replace(',', '.'); const v = parseFloat(x); return Number.isFinite(v) ? v : 0; };
-    const state = (eid) => (eid && hass.states[eid] ? hass.states[eid].state : null);
-    const getVal = (eid) => (eid ? fnum(state(eid)) : 0);
-    const ent = (eid) => (eid ? hass.states[eid] : null);
-    const setText = (id, text) => { const el = this.content.querySelector(id); if (el) el.innerHTML = text; };
-    const mkRing = (percent, colorMain, colorBg, strokeWidth) => { 
-        const p = Math.min(Math.max(percent, 0), 100); 
-        const C = 282.743;
-        const dash = (p / 100) * C;
-        return `<svg viewBox=\"0 0 100 100\" class=\"donut-chart\" style=\"width:100%; height:100%;\">
-            <path d=\"M50 5 a 45 45 0 0 1 0 90 a 45 45 0 0 1 0 -90\" stroke=\"${colorBg}\" stroke-width=\"${strokeWidth}\" fill=\"none\" />
-            <path d=\"M50 5 a 45 45 0 0 1 0 90 a 45 45 0 0 1 0 -90\" stroke=\"${colorMain}\" stroke-width=\"${strokeWidth}\" stroke-dasharray=\"${dash}, ${C}\" fill=\"none\" stroke-linecap=\"round\" />
-        </svg>`; 
-    };
-
-    // --- 2. CSS ---
+    // Styles
     const styleVars = isDark ? `
       --ms-bg: linear-gradient(180deg, #111827 0%, #000000 100%); --ms-card-border: 1px solid #1f2937; --ms-shadow: 0 4px 15px rgba(0,0,0,0.5); --ms-circle-bg: #1f2937; --ms-circle-border: 2px solid #374151; --ms-text-val: #ffffff; --ms-text-label: #9ca3af; --ms-text-unit: #6b7280; --ms-path-bg: #374151; --ms-bar-bg: rgba(31, 41, 55, 0.6); --ms-color-solar: #4ade80; --ms-color-red: #f87171; --ms-color-blue: #60a5fa; --ms-color-orange: #fb8c00; --ms-color-wp: #fb8c00; --ms-glow-green: drop-shadow(0 0 5px rgba(74, 222, 128, 0.8)); --ms-glow-red: drop-shadow(0 0 5px rgba(248, 113, 113, 0.8)); --ms-glow-blue: drop-shadow(0 0 5px rgba(96, 165, 250, 0.8)); --ms-glow-orange: drop-shadow(0 0 5px rgba(251, 140, 0, 0.8));
     ` : `
@@ -155,29 +163,33 @@ class ModernSolarFlowCard extends HTMLElement {
     .path-flow { fill: none; stroke: var(--ms-color-solar); stroke-width: 5px; stroke-dasharray: 12; opacity: 0; stroke-linecap: round; transition: stroke 0.3s ease, opacity 0.3s ease; } 
     .path-flow.flow-red { stroke: var(--ms-color-red) !important; filter: var(--ms-glow-red); } .path-flow.flow-green { stroke: var(--ms-color-solar) !important; filter: var(--ms-glow-green); } .path-flow.flow-blue { stroke: var(--ms-color-blue) !important; filter: var(--ms-glow-blue); } .path-flow.flow-wp { stroke: var(--ms-color-wp) !important; filter: var(--ms-glow-orange); } .active { opacity: 1; animation: dash 1s linear infinite; } @keyframes dash { from { stroke-dashoffset: 24; } to { stroke-dashoffset: 0; } } 
     .stats-footer { height: 100px; background: var(--ms-bar-bg); backdrop-filter: blur(5px); border-top: 1px solid var(--ms-text-unit); display: flex; justify-content: space-around; align-items: center; padding: 0 10px; z-index: 30; } .stat-block { width: 45%; display: flex; align-items: center; justify-content: center; gap: 10px; } .chart-wrap { width: 55px; height: 55px; } .donut-chart { width: 100%; height: 100%; transform: rotate(-90deg); } .donut-bg { fill: none; stroke-width: 4; } .donut-seg { fill: none; stroke-width: 4; stroke-linecap: round; } .stat-info { display: flex; flex-direction: column; justify-content: center; } .stat-main { font-size: 15px; font-weight: 900; color: var(--ms-text-val); } .stat-sub { font-size: 10px; color: var(--ms-text-unit); display: flex; align-items: center; gap: 5px; } .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }`;
+    
     const styleEl = this.content.querySelector('#ms-style'); if (styleEl && styleEl.innerHTML !== css) styleEl.innerHTML = css;
 
-    const solarVal = getVal(config.solar_entity); let gridVal = getVal(config.grid_entity); if (config.invert_grid) gridVal *= -1;
-    let battPower = getVal(config.battery_power_entity); if (config.invert_battery) battPower *= -1; 
-    const battSoc = getVal(config.battery_entity);
-    let homeVal = config.use_home_calc !== false ? (solarVal + gridVal + battPower) : getVal(config.home_entity);
+    // Use Class Methods (this._getVal)
+    const solarVal = this._getVal(config.solar_entity); 
+    let gridVal = this._getVal(config.grid_entity); 
+    if (config.invert_grid) gridVal *= -1;
+    let battPower = this._getVal(config.battery_power_entity); 
+    if (config.invert_battery) battPower *= -1; 
+    const battSoc = this._getVal(config.battery_entity);
+    let homeVal = config.use_home_calc !== false ? (solarVal + gridVal + battPower) : this._getVal(config.home_entity);
 
     const THRESHOLD = 10; const isSolarProducing = solarVal > THRESHOLD; const isGridImport = gridVal > THRESHOLD; const isGridExport = gridVal < -THRESHOLD; const isBattDischarging = battPower > THRESHOLD; const isBattCharging = battPower < -THRESHOLD;
 
     let s_to_h = false, s_to_b = false, s_to_g = false, g_to_h = false, b_to_h = false, g_to_b = false;
-    if (isSolarProducing) { s_to_h = true; if (isBattCharging) s_to_b = true; if (isGridExport) s_to_g = true; }
+    if (isSolarProducing) { s_to_h = true; if (isBattCharging) s_to_b = true; if (isGridExport) s_to_g = true; } 
     if (isGridImport) { g_to_h = true; if (isBattCharging) g_to_b = true; }
     if (isBattDischarging) b_to_h = true;
 
-    setText('#val-solar', `${Math.abs(Math.round(solarVal))}<span class="unit">W</span>`);
-    setText('#val-batt-soc', `${Math.abs(Math.round(battSoc))}<span class="unit">%</span>`);
-    setText('#val-batt-power', `${Math.abs(Math.round(battPower))} W`);
-    setText('#val-home', `${Math.abs(Math.round(homeVal))}<span class="unit">W</span>`);
-    setText('#val-grid', `${Math.abs(Math.round(gridVal))}<span class="unit">W</span>`);
-    setText('#label-solar', config.solar_label); setText('#label-batt', config.battery_label); setText('#label-home', config.home_label); setText('#label-grid', config.grid_label); setText('#label-wp', config.wp_label);
+    this._setText('#val-solar', `${Math.abs(Math.round(solarVal))}<span class="unit">W</span>`);
+    this._setText('#val-batt-soc', `${Math.abs(Math.round(battSoc))}<span class="unit">%</span>`);
+    this._setText('#val-batt-power', `${Math.abs(Math.round(battPower))} W`);
+    this._setText('#val-home', `${Math.abs(Math.round(homeVal))}<span class="unit">W</span>`);
+    this._setText('#val-grid', `${Math.abs(Math.round(gridVal))}<span class="unit">W</span>`);
+    this._setText('#label-solar', config.solar_label); this._setText('#label-batt', config.battery_label); this._setText('#label-home', config.home_label); this._setText('#label-grid', config.grid_label); this._setText('#label-wp', config.wp_label);
 
     const solarEl = this.content.querySelector('#ms-solar'); 
-    // Reset classes first
     solarEl.className = 'circle c-solar';
     if (isSolarProducing) solarEl.classList.add('status-green');
 
@@ -188,18 +200,18 @@ class ModernSolarFlowCard extends HTMLElement {
     if (isGridImport) gridEl.classList.add('status-red'); else if (isGridExport) gridEl.classList.add('status-green');
 
     const homeRing = this.content.querySelector('#home-ring');
-    if (homeVal > 0) { const importVal = isGridImport ? gridVal : 0; const autarky = Math.max(0, Math.min(100, ((homeVal - importVal) / homeVal) * 100)); homeRing.innerHTML = mkRing(autarky, 'var(--ms-color-solar)', 'var(--ms-color-red)', 3); } 
-    else { homeRing.innerHTML = mkRing(100, 'var(--ms-color-solar)', 'var(--ms-color-solar)', 3); }
+    if (homeVal > 0) { const importVal = isGridImport ? gridVal : 0; const autarky = Math.max(0, Math.min(100, ((homeVal - importVal) / homeVal) * 100)); homeRing.innerHTML = this._mkRing(autarky, 'var(--ms-color-solar)', 'var(--ms-color-red)', 3); } 
+    else { homeRing.innerHTML = this._mkRing(100, 'var(--ms-color-solar)', 'var(--ms-color-solar)', 3); }
 
-    const wpEntity = ent(config.wp_entity);
+    const wpEntity = this._ent(config.wp_entity);
     if (wpEntity) {
-      const s = String(wpEntity.state).toLowerCase(); const n = fnum(wpEntity.state);
+      const s = String(wpEntity.state).toLowerCase(); const n = this._fnum(wpEntity.state);
       const hasPower = !isNaN(parseFloat(wpEntity.state)) && Number.isFinite(n) && (Math.abs(n) > 10);
       let isWpRunning = hasPower || ['on', 'true', '1', 'running'].includes(s);
       if (config.invert_wp) isWpRunning = !isWpRunning;
       const wpEl = this.content.querySelector('#ms-wp'); const wpPathBg = this.content.querySelector('#p-bg-h-w'); const wpPathFlow = this.content.querySelector('#p-flow-h-w');
       wpEl.classList.remove('hidden'); wpPathBg.classList.remove('hidden'); wpPathFlow.classList.remove('hidden');
-      setText('#val-wp', isWpRunning ? (hasPower ? `${Math.round(Math.abs(n))} W` : 'EIN') : 'AUS');
+      this._setText('#val-wp', isWpRunning ? (hasPower ? `${Math.round(Math.abs(n))} W` : 'EIN') : 'AUS');
       wpEl.classList.toggle('status-wp', isWpRunning);
       let wpLineClass = 'flow-wp'; if (isWpRunning) { if (isGridImport) wpLineClass = 'flow-red'; else wpLineClass = 'flow-green'; } 
       wpPathFlow.setAttribute('class', `path-flow ${wpLineClass} ${isWpRunning ? 'active' : ''}`);
@@ -207,7 +219,7 @@ class ModernSolarFlowCard extends HTMLElement {
       this.content.querySelector('#ms-wp').classList.add('hidden'); this.content.querySelector('#p-bg-h-w').classList.add('hidden'); this.content.querySelector('#p-flow-h-w').classList.add('hidden');
     }
 
-    if (config.price_entity) { this.content.querySelector('#ms-price-badge').classList.remove('hidden'); setText('#ms-price-val', `${getVal(config.price_entity).toFixed(3)} ${ent(config.price_entity)?.attributes?.unit_of_measurement ?? ''}`); } else { this.content.querySelector('#ms-price-badge').classList.add('hidden'); }
+    if (config.price_entity) { this.content.querySelector('#ms-price-badge').classList.remove('hidden'); this._setText('#ms-price-val', `${this._getVal(config.price_entity).toFixed(3)} ${this._ent(config.price_entity)?.attributes?.unit_of_measurement ?? ''}`); } else { this.content.querySelector('#ms-price-badge').classList.add('hidden'); }
 
     const setPath = (id, active) => { const p = this.content.querySelector(id); if (p) p.classList.toggle('active', active); };
     setPath('#p-flow-s-h', s_to_h); setPath('#p-flow-s-b', s_to_b); setPath('#p-flow-s-g', s_to_g); setPath('#p-flow-b-h', b_to_h); setPath('#p-flow-g-h', g_to_h); setPath('#p-flow-g-b', g_to_b);
@@ -215,12 +227,12 @@ class ModernSolarFlowCard extends HTMLElement {
     const footer = this.content.querySelector('#ms-footer');
     if (isDailyVisible) {
         footer.classList.remove('hidden');
-        const dSolar = getVal(config.solar_daily_entity); const dGrid = getVal(config.grid_daily_entity); const dSelf = getVal(config.self_daily_entity); const dCons = getVal(config.consumption_daily_entity);
+        const dSolar = this._getVal(config.solar_daily_entity); const dGrid = this._getVal(config.grid_daily_entity); const dSelf = this._getVal(config.self_daily_entity); const dCons = this._getVal(config.consumption_daily_entity);
         const pSolarSelf = dSolar > 0 ? (dSelf / dSolar) * 100 : 0; const pConsPV = dCons > 0 ? (dSelf / dCons) * 100 : 0;
-        setText('#stat-solar-val', `${dSolar.toFixed(1)} kWh`); setText('#stat-solar-self', `${dSelf.toFixed(1)} Eigen`); setText('#stat-solar-grid', `${(dSolar - dSelf).toFixed(1)} Netz`);
-        this.content.querySelector('#chart-solar').innerHTML = mkRing(pSolarSelf, 'var(--ms-color-solar)', 'var(--ms-color-orange)', 10);
-        setText('#stat-cons-val', `${dCons.toFixed(1)} kWh`); setText('#stat-cons-pv', `${pConsPV.toFixed(0)}% PV`); setText('#stat-cons-grid', `${(100 - pConsPV).toFixed(0)}% Netz`);
-        this.content.querySelector('#chart-cons').innerHTML = mkRing(pConsPV, 'var(--ms-color-blue)', 'var(--ms-color-red)', 10);
+        this._setText('#stat-solar-val', `${dSolar.toFixed(1)} kWh`); this._setText('#stat-solar-self', `${dSelf.toFixed(1)} Eigen`); this._setText('#stat-solar-grid', `${(dSolar - dSelf).toFixed(1)} Netz`);
+        this.content.querySelector('#chart-solar').innerHTML = this._mkRing(pSolarSelf, 'var(--ms-color-solar)', 'var(--ms-color-orange)', 10);
+        this._setText('#stat-cons-val', `${dCons.toFixed(1)} kWh`); this._setText('#stat-cons-pv', `${pConsPV.toFixed(0)}% PV`); this._setText('#stat-cons-grid', `${(100 - pConsPV).toFixed(0)}% Netz`);
+        this.content.querySelector('#chart-cons').innerHTML = this._mkRing(pConsPV, 'var(--ms-color-blue)', 'var(--ms-color-red)', 10);
     } else footer.classList.add('hidden');
   }
 
