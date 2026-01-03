@@ -1,4 +1,4 @@
-const CARD_VERSION = '0.4.1';
+const CARD_VERSION = '0.4.2';
 
 console.info(
   `%c  MODERN-SOLAR-FLOW-CARD  \n%c  Version ${CARD_VERSION}    `,
@@ -107,7 +107,7 @@ class ModernSolarFlowCard extends HTMLElement {
     this._ro.observe(this.content);
   }
 
-  // --- HELPERS (Now Class Methods) ---
+  // --- CLASS HELPERS ---
   _fnum(x) { 
     if (typeof x === 'string') x = x.replace(',', '.'); 
     const v = parseFloat(x); return Number.isFinite(v) ? v : 0; 
@@ -123,7 +123,7 @@ class ModernSolarFlowCard extends HTMLElement {
   
   _mkRing(percent, colorMain, colorBg, strokeWidth) {
     const p = Math.min(Math.max(percent, 0), 100);
-    const C = 282.743;
+    const C = 282.743; // 2 * PI * 45
     const dash = (p / 100) * C;
     return `<svg viewBox="0 0 100 100" class="donut-chart" style="width:100%; height:100%;">
         <path d="M50 5 a 45 45 0 0 1 0 90 a 45 45 0 0 1 0 -90" stroke="${colorBg}" stroke-width="${strokeWidth}" fill="none" />
@@ -137,7 +137,7 @@ class ModernSolarFlowCard extends HTMLElement {
     const isDark = this._hass.themes?.darkMode ?? false;
     const isDailyVisible = config.show_daily_stats !== false;
 
-    // Styles
+    // Styles (unchanged)
     const styleVars = isDark ? `
       --ms-bg: linear-gradient(180deg, #111827 0%, #000000 100%); --ms-card-border: 1px solid #1f2937; --ms-shadow: 0 4px 15px rgba(0,0,0,0.5); --ms-circle-bg: #1f2937; --ms-circle-border: 2px solid #374151; --ms-text-val: #ffffff; --ms-text-label: #9ca3af; --ms-text-unit: #6b7280; --ms-path-bg: #374151; --ms-bar-bg: rgba(31, 41, 55, 0.6); --ms-color-solar: #4ade80; --ms-color-red: #f87171; --ms-color-blue: #60a5fa; --ms-color-orange: #fb8c00; --ms-color-wp: #fb8c00; --ms-glow-green: drop-shadow(0 0 5px rgba(74, 222, 128, 0.8)); --ms-glow-red: drop-shadow(0 0 5px rgba(248, 113, 113, 0.8)); --ms-glow-blue: drop-shadow(0 0 5px rgba(96, 165, 250, 0.8)); --ms-glow-orange: drop-shadow(0 0 5px rgba(251, 140, 0, 0.8));
     ` : `
@@ -178,7 +178,7 @@ class ModernSolarFlowCard extends HTMLElement {
     const THRESHOLD = 10; const isSolarProducing = solarVal > THRESHOLD; const isGridImport = gridVal > THRESHOLD; const isGridExport = gridVal < -THRESHOLD; const isBattDischarging = battPower > THRESHOLD; const isBattCharging = battPower < -THRESHOLD;
 
     let s_to_h = false, s_to_b = false, s_to_g = false, g_to_h = false, b_to_h = false, g_to_b = false;
-    if (isSolarProducing) { s_to_h = true; if (isBattCharging) s_to_b = true; if (isGridExport) s_to_g = true; } 
+    if (isSolarProducing) { s_to_h = true; if (isBattCharging) s_to_b = true; if (isGridExport) s_to_g = true; }
     if (isGridImport) { g_to_h = true; if (isBattCharging) g_to_b = true; }
     if (isBattDischarging) b_to_h = true;
 
@@ -200,8 +200,8 @@ class ModernSolarFlowCard extends HTMLElement {
     if (isGridImport) gridEl.classList.add('status-red'); else if (isGridExport) gridEl.classList.add('status-green');
 
     const homeRing = this.content.querySelector('#home-ring');
-    if (homeVal > 0) { const importVal = isGridImport ? gridVal : 0; const autarky = Math.max(0, Math.min(100, ((homeVal - importVal) / homeVal) * 100)); homeRing.innerHTML = this._mkRing(autarky, 'var(--ms-color-solar)', 'var(--ms-color-red)', 3); } 
-    else { homeRing.innerHTML = this._mkRing(100, 'var(--ms-color-solar)', 'var(--ms-color-solar)', 3); }
+    if (homeVal > 0) { const importVal = isGridImport ? gridVal : 0; const autarky = Math.max(0, Math.min(100, ((homeVal - importVal) / homeVal) * 100)); homeRing.innerHTML = this._mkRing(autarky, 'var(--ms-color-solar)', 'var(--ms-color-red)', 2); } 
+    else { homeRing.innerHTML = this._mkRing(100, 'var(--ms-color-solar)', 'var(--ms-color-solar)', 2); }
 
     const wpEntity = this._ent(config.wp_entity);
     if (wpEntity) {
@@ -213,7 +213,7 @@ class ModernSolarFlowCard extends HTMLElement {
       wpEl.classList.remove('hidden'); wpPathBg.classList.remove('hidden'); wpPathFlow.classList.remove('hidden');
       this._setText('#val-wp', isWpRunning ? (hasPower ? `${Math.round(Math.abs(n))} W` : 'EIN') : 'AUS');
       wpEl.classList.toggle('status-wp', isWpRunning);
-      let wpLineClass = 'flow-wp'; if (isWpRunning) { if (isGridImport) wpLineClass = 'flow-red'; else wpLineClass = 'flow-green'; } 
+      let wpLineClass = 'flow-wp'; if (isWpRunning) { if (isGridImport) wpLineClass = 'flow-red'; else wpLineClass = 'flow-green'; }
       wpPathFlow.setAttribute('class', `path-flow ${wpLineClass} ${isWpRunning ? 'active' : ''}`);
     } else {
       this.content.querySelector('#ms-wp').classList.add('hidden'); this.content.querySelector('#p-bg-h-w').classList.add('hidden'); this.content.querySelector('#p-flow-h-w').classList.add('hidden');
