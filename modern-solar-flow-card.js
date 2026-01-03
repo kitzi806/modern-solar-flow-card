@@ -1,4 +1,4 @@
-const CARD_VERSION = '0.4.3';
+const CARD_VERSION = '0.5.0';
 
 console.info(
   `%c  MODERN-SOLAR-FLOW-CARD  \n%c  Version ${CARD_VERSION}    `,
@@ -27,18 +27,25 @@ class ModernSolarFlowCard extends HTMLElement {
       battery_label: 'Akku',
       home_label: 'Haus',
       wp_label: 'WP',
+      dhw_label: 'Boiler',
       invert_grid: false,
       invert_battery: false,
       invert_wp: false,
       show_daily_stats: true,
-      use_home_calc: true, 
+      use_home_calc: true,
+      show_dhw: false,
       ...config
     };
-    if (this.content) this._updateContent();
+    if (this.content) {
+        this.content.innerHTML = ''; // Force re-render for structure change
+        this._createCard();
+        this._updateContent();
+    }
   }
 
   _createCard() {
-    if (this.content) return; 
+    if (this.content && this.content.innerHTML !== '') return; 
+    
     const card = document.createElement('ha-card');
     this.content = document.createElement('div');
     this.content.className = 'solar-root';
@@ -58,6 +65,8 @@ class ModernSolarFlowCard extends HTMLElement {
                 <path id="p-bg-g-h" class="path-bg"></path><path id="p-flow-g-h" class="path-flow flow-red"></path>
                 <path id="p-bg-g-b" class="path-bg"></path><path id="p-flow-g-b" class="path-flow flow-red"></path>
                 <path id="p-bg-h-w" class="path-bg hidden"></path><path id="p-flow-h-w" class="path-flow hidden"></path>
+                <!-- WP -> DHW line (static) -->
+                <path id="p-bg-w-d" class="path-bg hidden"></path>
             </g>
         </svg>
 
@@ -92,6 +101,13 @@ class ModernSolarFlowCard extends HTMLElement {
           <div class="val" id="val-wp">--</div>
           <div class="label" id="label-wp"></div>
         </div>
+
+        <!-- DHW Satellite -->
+        <div class="circle c-dhw hidden status-red" id="ms-dhw">
+          <ha-icon icon="mdi:water-boiler" class="icon-small"></ha-icon>
+          <div class="val-small" id="val-dhw">--</div>
+          <div class="label" id="label-dhw"></div>
+        </div>
       </div>
 
       <div class="stats-footer" id="ms-footer">
@@ -107,29 +123,36 @@ class ModernSolarFlowCard extends HTMLElement {
     this._ro.observe(this.content);
   }
 
+  // --- HELPERS ---
+  _fnum(x) { 
+    if (typeof x === 'string') x = x.replace(',', '.'); 
+    const v = parseFloat(x); return Number.isFinite(v) ? v : 0; 
+  }
+  _state(eid) { return (eid && this._hass && this._hass.states[eid] ? this._hass.states[eid].state : null); }
+  _getVal(eid) { return this._fnum(this._state(eid)); }
+  _ent(eid) { return (eid && this._hass ? this._hass.states[eid] : null); }
+  
+  _setText(id, text) { 
+    const el = this.content.querySelector(id); 
+    if (el) el.innerHTML = text; 
+  }
+  
+  _mkRing(percent, colorMain, colorBg, strokeWidth) {
+    const p = Math.min(Math.max(percent, 0), 100);
+    const C = 282.743;
+    const dash = (p / 100) * C;
+    return `<svg viewBox="0 0 100 100" class="donut-chart" style="width:100%; height:100%;">
+        <path d="M50 5 a 45 45 0 0 1 0 90 a 45 45 0 0 1 0 -90" stroke="${colorBg}" stroke-width="${strokeWidth}" fill="none" />
+        <path d="M50 5 a 45 45 0 0 1 0 90 a 45 45 0 0 1 0 -90" stroke="${colorMain}" stroke-width="${strokeWidth}" stroke-dasharray="${dash}, ${C}" fill="none" stroke-linecap="round" />
+    </svg>`;
+  }
+
   _updateContent() {
     if (!this.config || !this._hass || !this.content) return;
-    const hass = this._hass; const config = this.config;
-    const isDark = hass.themes?.darkMode ?? false;
+    const config = this.config;
+    const isDark = this._hass.themes?.darkMode ?? false;
     const isDailyVisible = config.show_daily_stats !== false;
 
-    // --- 1. HELPERS (lokal, wie in 0.3.7) ---
-    const fnum = (x) => { if (typeof x === 'string') x = x.replace(',', '.'); const v = parseFloat(x); return Number.isFinite(v) ? v : 0; };
-    const state = (eid) => (eid && hass.states[eid] ? hass.states[eid].state : null);
-    const getVal = (eid) => (eid ? fnum(state(eid)) : 0);
-    const ent = (eid) => (eid ? hass.states[eid] : null);
-    const setText = (id, text) => { const el = this.content.querySelector(id); if (el) el.innerHTML = text; };
-    const mkRing = (percent, colorMain, colorBg, strokeWidth) => { 
-        const p = Math.min(Math.max(percent, 0), 100); 
-        const C = 282.743;
-        const dash = (p / 100) * C;
-        return `<svg viewBox="0 0 100 100" class="donut-chart" style="width:100%; height:100%;">
-            <path d="M50 5 a 45 45 0 0 1 0 90 a 45 45 0 0 1 0 -90" stroke="${colorBg}" stroke-width="${strokeWidth}" fill="none" />
-            <path d="M50 5 a 45 45 0 0 1 0 90 a 45 45 0 0 1 0 -90" stroke="${colorMain}" stroke-width="${strokeWidth}" stroke-dasharray="${dash}, ${C}" fill="none" stroke-linecap="round" />
-        </svg>`; 
-    };
-
-    // --- 2. CSS (Angepasst für Zentrierung) ---
     const styleVars = isDark ? `
       --ms-bg: linear-gradient(180deg, #111827 0%, #000000 100%); --ms-card-border: 1px solid #1f2937; --ms-shadow: 0 4px 15px rgba(0,0,0,0.5); --ms-circle-bg: #1f2937; --ms-circle-border: 2px solid #374151; --ms-text-val: #ffffff; --ms-text-label: #9ca3af; --ms-text-unit: #6b7280; --ms-path-bg: #374151; --ms-bar-bg: rgba(31, 41, 55, 0.6); --ms-color-solar: #4ade80; --ms-color-red: #f87171; --ms-color-blue: #60a5fa; --ms-color-orange: #fb8c00; --ms-color-wp: #fb8c00; --ms-glow-green: drop-shadow(0 0 5px rgba(74, 222, 128, 0.8)); --ms-glow-red: drop-shadow(0 0 5px rgba(248, 113, 113, 0.8)); --ms-glow-blue: drop-shadow(0 0 5px rgba(96, 165, 250, 0.8)); --ms-glow-orange: drop-shadow(0 0 5px rgba(251, 140, 0, 0.8));
     ` : `
@@ -138,18 +161,20 @@ class ModernSolarFlowCard extends HTMLElement {
 
     const css = `.solar-root { ${styleVars} position: relative; isolation: isolate; height: ${isDailyVisible ? '540px' : '440px'}; background: var(--ms-bg); border: var(--ms-card-border); border-radius: 20px; box-shadow: var(--ms-shadow); overflow: hidden; display: flex; flex-direction: column; font-family: 'Roboto', sans-serif; box-sizing: border-box; transition: height 0.3s ease; } .diagram-area { position: relative; flex-grow: 1; width: 100%; } .price-badge { position: absolute; top: 15px; right: 15px; background: var(--ms-circle-bg); opacity: 0.9; border: 1px solid var(--ms-text-unit); padding: 4px 10px; border-radius: 15px; font-size: 12px; font-weight: 700; color: var(--ms-text-val); z-index: 50; display: flex; align-items: center; gap: 6px; } .hidden { display: none !important; } 
     .circle { position: absolute; background: var(--ms-circle-bg); border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; border: var(--ms-circle-border); box-shadow: 0 8px 20px rgba(0,0,0,0.12); z-index: 20; transition: border-color 0.3s ease; padding: 5px; box-sizing: border-box; } 
-    .icon { --mdc-icon-size: 24px; color: var(--ms-text-label); margin-bottom: 4px; } .icon-small { --mdc-icon-size: 18px; color: var(--ms-text-label); margin-bottom: 2px;}
+    .icon { --mdc-icon-size: 24px; color: var(--ms-text-label); margin-bottom: 4px; } .icon-small { --mdc-icon-size: 18px; color: var(--ms-text-label); margin-bottom: 2px; }
     .c-solar { top: 20px; left: 50%; transform: translateX(-50%); width: 115px; height: 115px; } 
     .c-batt { top: 180px; left: 10px; width: 95px; height: 95px; } 
     .c-home { top: 180px; left: 50%; transform: translateX(-50%); width: 95px; height: 95px; border: none; } 
     .c-grid { top: 180px; right: 10px; width: 95px; height: 95px; } 
     .c-wp { top: 320px; left: 50%; transform: translateX(-50%); width: 75px; height: 75px; border-color: var(--ms-color-wp); } 
+    .c-dhw { top: 335px; left: calc(50% + 55px); width: 60px; height: 60px; border-color: var(--ms-color-red);}
     .home-ring-container { position: absolute; top: -3px; left: -3px; width: calc(100% + 6px); height: calc(100% + 6px); z-index: 10; transform: rotate(-90deg); pointer-events: none; } 
     .status-red { border-color: var(--ms-color-red) !important; } .status-green { border-color: var(--ms-color-solar) !important; } .status-blue { border-color: var(--ms-color-blue) !important; } .status-wp { border-color: var(--ms-color-wp) !important; } 
     .val { font-size: 18px; font-weight: 900; color: var(--ms-text-val); line-height: 1; z-index: 5; text-align: center; } 
+    .val-small { font-size: 13px; font-weight: 700; color: var(--ms-text-val); line-height: 1; z-index: 5; text-align: center;}
     .unit { font-size: 11px; font-weight: 500; color: var(--ms-text-unit); margin-left: 1px; } 
-    .sub-val { font-size: 12px; font-weight: 600; color: var(--ms-text-unit); line-height: 1; margin-top: 4px; z-index: 5; text-align: center; } 
-    .label { font-size: 9px; font-weight: 700; color: var(--ms-text-label); text-transform: uppercase; line-height: 1; margin-top: 4px; z-index: 5; text-align: center; } 
+    .sub-val { font-size: 12px; font-weight: 600; color: var(--ms-text-unit); line-height: 1; margin-top: 2px; z-index: 5; text-align: center; } 
+    .label { font-size: 9px; font-weight: 700; color: var(--ms-text-label); text-transform: uppercase; line-height: 1; margin-top: 3px; z-index: 5; text-align: center; } 
     .c-solar .val { font-size: 26px; } #ms-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; } 
     .path-bg { fill: none; stroke: var(--ms-path-bg); stroke-width: 4px; opacity: 0.2; stroke-linecap: round; } 
     .path-flow { fill: none; stroke: var(--ms-color-solar); stroke-width: 5px; stroke-dasharray: 12; opacity: 0; stroke-linecap: round; transition: stroke 0.3s ease, opacity 0.3s ease; } 
@@ -158,10 +183,13 @@ class ModernSolarFlowCard extends HTMLElement {
     
     const styleEl = this.content.querySelector('#ms-style'); if (styleEl && styleEl.innerHTML !== css) styleEl.innerHTML = css;
 
-    const solarVal = getVal(config.solar_entity); let gridVal = getVal(config.grid_entity); if (config.invert_grid) gridVal *= -1;
-    let battPower = getVal(config.battery_power_entity); if (config.invert_battery) battPower *= -1; 
-    const battSoc = getVal(config.battery_entity);
-    let homeVal = config.use_home_calc !== false ? (solarVal + gridVal + battPower) : getVal(config.home_entity);
+    const solarVal = this._getVal(config.solar_entity); 
+    let gridVal = this._getVal(config.grid_entity); 
+    if (config.invert_grid) gridVal *= -1;
+    let battPower = this._getVal(config.battery_power_entity); 
+    if (config.invert_battery) battPower *= -1; 
+    const battSoc = this._getVal(config.battery_entity);
+    let homeVal = config.use_home_calc !== false ? (solarVal + gridVal + battPower) : this._getVal(config.home_entity);
 
     const THRESHOLD = 10; const isSolarProducing = solarVal > THRESHOLD; const isGridImport = gridVal > THRESHOLD; const isGridExport = gridVal < -THRESHOLD; const isBattDischarging = battPower > THRESHOLD; const isBattCharging = battPower < -THRESHOLD;
 
@@ -170,16 +198,16 @@ class ModernSolarFlowCard extends HTMLElement {
     if (isGridImport) { g_to_h = true; if (isBattCharging) g_to_b = true; }
     if (isBattDischarging) b_to_h = true;
 
-    setText('#val-solar', `${Math.abs(Math.round(solarVal))}<span class="unit">W</span>`);
-    setText('#val-batt-soc', `${Math.abs(Math.round(battSoc))}<span class="unit">%</span>`);
-    setText('#val-batt-power', `${Math.abs(Math.round(battPower))} W`);
-    setText('#val-home', `${Math.abs(Math.round(homeVal))}<span class="unit">W</span>`);
-    setText('#val-grid', `${Math.abs(Math.round(gridVal))}<span class="unit">W</span>`);
-    setText('#label-solar', config.solar_label); setText('#label-batt', config.battery_label); setText('#label-home', config.home_label); setText('#label-grid', config.grid_label); setText('#label-wp', config.wp_label);
+    this._setText('#val-solar', `${Math.abs(Math.round(solarVal))}<span class="unit">W</span>`);
+    this._setText('#val-batt-soc', `${Math.abs(Math.round(battSoc))}<span class="unit">%</span>`);
+    this._setText('#val-batt-power', `${Math.abs(Math.round(battPower))} W`);
+    this._setText('#val-home', `${Math.abs(Math.round(homeVal))}<span class="unit">W</span>`);
+    this._setText('#val-grid', `${Math.abs(Math.round(gridVal))}<span class="unit">W</span>`);
+    this._setText('#label-solar', config.solar_label); this._setText('#label-batt', config.battery_label); this._setText('#label-home', config.home_label); this._setText('#label-grid', config.grid_label); this._setText('#label-wp', config.wp_label);
 
     const solarEl = this.content.querySelector('#ms-solar'); 
-    solarEl.className = 'circle c-solar'; // Reset class
-    if (isSolarProducing) solarEl.classList.add('status-green'); // Add only if producing
+    solarEl.className = 'circle c-solar';
+    if (isSolarProducing) solarEl.classList.add('status-green');
 
     const battEl = this.content.querySelector('#ms-batt'); battEl.className = 'circle c-batt';
     if (isBattDischarging) battEl.classList.add('status-green'); else if (isBattCharging) battEl.classList.add('status-blue');
@@ -188,18 +216,21 @@ class ModernSolarFlowCard extends HTMLElement {
     if (isGridImport) gridEl.classList.add('status-red'); else if (isGridExport) gridEl.classList.add('status-green');
 
     const homeRing = this.content.querySelector('#home-ring');
-    if (homeVal > 0) { const importVal = isGridImport ? gridVal : 0; const autarky = Math.max(0, Math.min(100, ((homeVal - importVal) / homeVal) * 100)); homeRing.innerHTML = mkRing(autarky, 'var(--ms-color-solar)', 'var(--ms-color-red)', 3); } 
-    else { homeRing.innerHTML = mkRing(100, 'var(--ms-color-solar)', 'var(--ms-color-solar)', 3); }
+    if (homeVal > 0) { const importVal = isGridImport ? gridVal : 0; const autarky = Math.max(0, Math.min(100, ((homeVal - importVal) / homeVal) * 100)); homeRing.innerHTML = this._mkRing(autarky, 'var(--ms-color-solar)', 'var(--ms-color-red)', 2); } 
+    else { homeRing.innerHTML = this._mkRing(100, 'var(--ms-color-solar)', 'var(--ms-color-solar)', 2); }
 
-    const wpEntity = ent(config.wp_entity);
+    // WP Logic
+    const wpEntity = this._ent(config.wp_entity);
+    let wpActive = false;
     if (wpEntity) {
-      const s = String(wpEntity.state).toLowerCase(); const n = fnum(wpEntity.state);
+      const s = String(wpEntity.state).toLowerCase(); const n = this._fnum(wpEntity.state);
       const hasPower = !isNaN(parseFloat(wpEntity.state)) && Number.isFinite(n) && (Math.abs(n) > 10);
       let isWpRunning = hasPower || ['on', 'true', '1', 'running'].includes(s);
       if (config.invert_wp) isWpRunning = !isWpRunning;
+      wpActive = isWpRunning;
       const wpEl = this.content.querySelector('#ms-wp'); const wpPathBg = this.content.querySelector('#p-bg-h-w'); const wpPathFlow = this.content.querySelector('#p-flow-h-w');
       wpEl.classList.remove('hidden'); wpPathBg.classList.remove('hidden'); wpPathFlow.classList.remove('hidden');
-      setText('#val-wp', isWpRunning ? (hasPower ? `${Math.round(Math.abs(n))} W` : 'EIN') : 'AUS');
+      this._setText('#val-wp', isWpRunning ? (hasPower ? `${Math.round(Math.abs(n))} W` : 'EIN') : 'AUS');
       wpEl.classList.toggle('status-wp', isWpRunning);
       let wpLineClass = 'flow-wp'; if (isWpRunning) { if (isGridImport) wpLineClass = 'flow-red'; else wpLineClass = 'flow-green'; }
       wpPathFlow.setAttribute('class', `path-flow ${wpLineClass} ${isWpRunning ? 'active' : ''}`);
@@ -207,7 +238,28 @@ class ModernSolarFlowCard extends HTMLElement {
       this.content.querySelector('#ms-wp').classList.add('hidden'); this.content.querySelector('#p-bg-h-w').classList.add('hidden'); this.content.querySelector('#p-flow-h-w').classList.add('hidden');
     }
 
-    if (config.price_entity) { this.content.querySelector('#ms-price-badge').classList.remove('hidden'); setText('#ms-price-val', `${getVal(config.price_entity).toFixed(3)} ${ent(config.price_entity)?.attributes?.unit_of_measurement ?? ''}`); } else { this.content.querySelector('#ms-price-badge').classList.add('hidden'); }
+    // DHW Logic (Satellite)
+    const dhwEl = this.content.querySelector('#ms-dhw');
+    const dhwLine = this.content.querySelector('#p-bg-w-d');
+    if (config.show_dhw && (config.dhw_temp_top_entity || config.dhw_temp_bottom_entity)) {
+        dhwEl.classList.remove('hidden');
+        if (dhwLine) dhwLine.classList.remove('hidden');
+        this._setText('#label-dhw', config.dhw_label || 'Boiler');
+        
+        const t1 = this._getVal(config.dhw_temp_top_entity);
+        const t2 = this._getVal(config.dhw_temp_bottom_entity);
+        let tStr = '--';
+        if (config.dhw_temp_top_entity && config.dhw_temp_bottom_entity) tStr = `${Math.round(t1)}° / ${Math.round(t2)}°`;
+        else if (config.dhw_temp_top_entity) tStr = `${t1.toFixed(1)} °C`;
+        else if (config.dhw_temp_bottom_entity) tStr = `${t2.toFixed(1)} °C`;
+        
+        this._setText('#val-dhw', tStr);
+    } else {
+        dhwEl.classList.add('hidden');
+        if (dhwLine) dhwLine.classList.add('hidden');
+    }
+
+    if (config.price_entity) { this.content.querySelector('#ms-price-badge').classList.remove('hidden'); this._setText('#ms-price-val', `${this._getVal(config.price_entity).toFixed(3)} ${this._ent(config.price_entity)?.attributes?.unit_of_measurement ?? ''}`); } else { this.content.querySelector('#ms-price-badge').classList.add('hidden'); }
 
     const setPath = (id, active) => { const p = this.content.querySelector(id); if (p) p.classList.toggle('active', active); };
     setPath('#p-flow-s-h', s_to_h); setPath('#p-flow-s-b', s_to_b); setPath('#p-flow-s-g', s_to_g); setPath('#p-flow-b-h', b_to_h); setPath('#p-flow-g-h', g_to_h); setPath('#p-flow-g-b', g_to_b);
@@ -215,12 +267,12 @@ class ModernSolarFlowCard extends HTMLElement {
     const footer = this.content.querySelector('#ms-footer');
     if (isDailyVisible) {
         footer.classList.remove('hidden');
-        const dSolar = getVal(config.solar_daily_entity); const dGrid = getVal(config.grid_daily_entity); const dSelf = getVal(config.self_daily_entity); const dCons = getVal(config.consumption_daily_entity);
+        const dSolar = this._getVal(config.solar_daily_entity); const dGrid = this._getVal(config.grid_daily_entity); const dSelf = this._getVal(config.self_daily_entity); const dCons = this._getVal(config.consumption_daily_entity);
         const pSolarSelf = dSolar > 0 ? (dSelf / dSolar) * 100 : 0; const pConsPV = dCons > 0 ? (dSelf / dCons) * 100 : 0;
-        setText('#stat-solar-val', `${dSolar.toFixed(1)} kWh`); setText('#stat-solar-self', `${dSelf.toFixed(1)} Eigen`); setText('#stat-solar-grid', `${(dSolar - dSelf).toFixed(1)} Netz`);
-        this.content.querySelector('#chart-solar').innerHTML = mkRing(pSolarSelf, 'var(--ms-color-solar)', 'var(--ms-color-orange)', 10);
-        setText('#stat-cons-val', `${dCons.toFixed(1)} kWh`); setText('#stat-cons-pv', `${pConsPV.toFixed(0)}% PV`); setText('#stat-cons-grid', `${(100 - pConsPV).toFixed(0)}% Netz`);
-        this.content.querySelector('#chart-cons').innerHTML = mkRing(pConsPV, 'var(--ms-color-blue)', 'var(--ms-color-red)', 10);
+        this._setText('#stat-solar-val', `${dSolar.toFixed(1)} kWh`); this._setText('#stat-solar-self', `${dSelf.toFixed(1)} Eigen`); this._setText('#stat-solar-grid', `${(dSolar - dSelf).toFixed(1)} Netz`);
+        this.content.querySelector('#chart-solar').innerHTML = this._mkRing(pSolarSelf, 'var(--ms-color-solar)', 'var(--ms-color-orange)', 10);
+        this._setText('#stat-cons-val', `${dCons.toFixed(1)} kWh`); this._setText('#stat-cons-pv', `${pConsPV.toFixed(0)}% PV`); this._setText('#stat-cons-grid', `${(100 - pConsPV).toFixed(0)}% Netz`);
+        this.content.querySelector('#chart-cons').innerHTML = this._mkRing(pConsPV, 'var(--ms-color-blue)', 'var(--ms-color-red)', 10);
     } else footer.classList.add('hidden');
   }
 
@@ -228,7 +280,7 @@ class ModernSolarFlowCard extends HTMLElement {
     if (!this.content) return;
     const svg = this.content.querySelector('#ms-svg'); const area = this.content.querySelector('.diagram-area'); if (!svg || !area) return;
     const getPos = (id) => { const el = this.content.querySelector(id); if (!el || el.offsetParent === null) return null; const r = el.getBoundingClientRect(); const ar = area.getBoundingClientRect(); return { x: (r.left - ar.left) + r.width / 2, y: (r.top - ar.top) + r.height / 2, r: r.width / 2 }; };
-    const S = getPos('#ms-solar'), B = getPos('#ms-batt'), H = getPos('#ms-home'), G = getPos('#ms-grid'), W = getPos('#ms-wp');
+    const S = getPos('#ms-solar'), B = getPos('#ms-batt'), H = getPos('#ms-home'), G = getPos('#ms-grid'), W = getPos('#ms-wp'), D = getPos('#ms-dhw');
     if (!S || !B || !H || !G) return; 
     svg.setAttribute('viewBox', `0 0 ${area.clientWidth} ${area.clientHeight}`);
     const PAD = 5; 
@@ -242,10 +294,14 @@ class ModernSolarFlowCard extends HTMLElement {
     updatePath('#p-flow-g-h', `M ${G.x - G.r - PAD} ${G.y} L ${H.x + H.r + PAD} ${H.y}`);
     updatePath('#p-flow-g-b', `M ${G.x - G.r - PAD} ${G.y} L ${B.x + B.r + PAD} ${B.y}`);
     if (W) updatePath('#p-flow-h-w', `M ${H.x} ${H.y + H.r + PAD} L ${W.x} ${W.y - W.r - PAD}`);
+    if (W && D) {
+        // Line from WP to DHW
+        updatePath('#p-bg-w-d', `M ${W.x + W.r + PAD} ${W.y} L ${D.x - D.r - PAD} ${D.y}`);
+    }
   }
 
   static getConfigElement() { return document.createElement('modern-solar-flow-card-editor'); }
-  static getStubConfig() { return { solar_label: 'Solar', grid_label: 'Netz', home_label: 'Haus', battery_label: 'Akku', wp_label: 'WP', show_daily_stats: true }; }
+  static getStubConfig() { return { solar_label: 'Solar', grid_label: 'Netz', home_label: 'Haus', battery_label: 'Akku', wp_label: 'WP', dhw_label: 'Boiler', show_daily_stats: true }; }
 }
 
 class ModernSolarFlowCardEditor extends HTMLElement {
@@ -265,6 +321,14 @@ class ModernSolarFlowCardEditor extends HTMLElement {
       { name: "battery_entity", label: "Batterie Ladestand (%)", selector: { entity: { domain: "sensor" } } },
       { name: "wp_entity", label: "Wärmepumpe/Zusatzlast (Optional)", selector: { entity: { } } },
       { name: "invert_wp", label: "Zusatzlast invertieren? (AUS = Aktiv)", selector: { boolean: {} } },
+      
+      { name: "show_dhw", label: "Warmwasserspeicher anzeigen?", selector: { boolean: {} } },
+      ...(this._config.show_dhw ? [
+          { name: "dhw_temp_top_entity", label: "Temperatur Oben", selector: { entity: { domain: "sensor" } } },
+          { name: "dhw_temp_bottom_entity", label: "Temperatur Unten", selector: { entity: { domain: "sensor" } } },
+          { name: "dhw_label", label: "Label Warmwasser", selector: { text: {} } }
+      ] : []),
+
       { name: "price_entity", label: "Strompreis (Optional)", selector: { entity: { domain: "sensor" } } },
       { name: "", type: "section", header: "Tageswerte (kWh)" },
       { name: "show_daily_stats", label: "Tageswerte anzeigen?", selector: { boolean: {} } },
@@ -272,6 +336,7 @@ class ModernSolarFlowCardEditor extends HTMLElement {
       { name: "grid_daily_entity", label: "Netz Einspeisung Tag", selector: { entity: { domain: "sensor" } } },
       { name: "consumption_daily_entity", label: "Gesamtverbrauch Tag", selector: { entity: { domain: "sensor" } } },
       { name: "self_daily_entity", label: "Eigenverbrauch Tag", selector: { entity: { domain: "sensor" } } },
+      
       { name: "", type: "section", header: "Beschriftungen" },
       { name: "solar_label", label: "Label Solar", selector: { text: {} } },
       { name: "grid_label", label: "Label Netz", selector: { text: {} } },
@@ -281,8 +346,14 @@ class ModernSolarFlowCardEditor extends HTMLElement {
     ];
     form.data = this._config; if (this._hass) form.hass = this._hass;
     form.computeLabel = (s) => s.label;
-    form.addEventListener('value-changed', (ev) => { const event = new Event("config-changed", { bubbles: true, composed: true }); event.detail = { config: ev.detail.value }; this.dispatchEvent(event); 
-        if (event.detail.config.use_home_calc !== this._config.use_home_calc) { this.innerHTML = ''; this._config = event.detail.config; this.render(); }
+    form.addEventListener('value-changed', (ev) => { 
+        const event = new Event("config-changed", { bubbles: true, composed: true }); 
+        event.detail = { config: ev.detail.value }; 
+        this.dispatchEvent(event); 
+        // Re-render form if toggles change
+        if (event.detail.config.show_dhw !== this._config.show_dhw || event.detail.config.use_home_calc !== this._config.use_home_calc) { 
+            this.innerHTML = ''; this._config = event.detail.config; this.render(); 
+        }
     });
     this.appendChild(form);
   }
