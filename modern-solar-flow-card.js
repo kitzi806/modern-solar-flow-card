@@ -1,4 +1,4 @@
-const CARD_VERSION = '1.0.4';
+const CARD_VERSION = '1.0.6';
 
 console.info(
   `%c  MODERN-SOLAR-FLOW-CARD  \n%c  Version ${CARD_VERSION}    `,
@@ -33,7 +33,6 @@ class ModernSolarFlowCard extends HTMLElement {
       ...config
     };
     
-    // If we already have content, we might need to adjust layout classes immediately
     if (this.content) {
         this._updateContent();
     }
@@ -48,7 +47,6 @@ class ModernSolarFlowCard extends HTMLElement {
     card.appendChild(this.content);
     this.shadowRoot.appendChild(card);
 
-    // Initial HTML Structure - created ONCE
     this.content.innerHTML = `
       <style id="ms-style"></style>
       <div class="diagram-area">
@@ -107,7 +105,7 @@ class ModernSolarFlowCard extends HTMLElement {
           </div>
         </div>
       </div>
-    `;
+    `
 
     this._ro = new ResizeObserver(() => {
       if (this._resizeTimer) clearTimeout(this._resizeTimer);
@@ -124,7 +122,6 @@ class ModernSolarFlowCard extends HTMLElement {
     const isDark = hass.themes?.darkMode ?? false;
     const isDailyVisible = config.show_daily_stats !== false;
 
-    // --- CSS ---
     const styleVars = isDark ? `
       --ms-bg: linear-gradient(180deg, #111827 0%, #000000 100%);
       --ms-card-border: 1px solid #1f2937;
@@ -239,29 +236,25 @@ class ModernSolarFlowCard extends HTMLElement {
         styleEl.innerHTML = css;
     }
 
-    // --- Helpers ---
-    const fnum = (x) => { const v = parseFloat(x); return Number.isFinite(v) ? v : 0; };
+    const fnum = (x) => { 
+        if (typeof x === 'string') {
+            x = x.replace(',', '.'); 
+        }
+        const v = parseFloat(x); 
+        return Number.isFinite(v) ? v : 0; 
+    };
     const state = (eid) => (eid && hass.states[eid] ? hass.states[eid].state : null);
     const getVal = (eid) => (eid ? fnum(state(eid)) : 0);
     const ent = (eid) => (eid ? hass.states[eid] : null);
 
-    // --- Data ---
     const solarVal = getVal(config.solar_entity);
     let gridVal = getVal(config.grid_entity);
     if (config.invert_grid) gridVal *= -1;
-
     let battPower = getVal(config.battery_power_entity);
     if (config.invert_battery) battPower *= -1; 
     const battSoc = getVal(config.battery_entity);
-    
-    let homeVal = 0;
-    if (config.home_entity) {
-      homeVal = getVal(config.home_entity);
-    } else {
-      homeVal = solarVal + gridVal + battPower; 
-    }
+    let homeVal = config.home_entity ? getVal(config.home_entity) : (solarVal + gridVal + battPower);
 
-    // Logic
     const THRESHOLD = 10;
     const isSolarProducing = solarVal > THRESHOLD;
     const isGridImport = gridVal > THRESHOLD;
@@ -269,147 +262,86 @@ class ModernSolarFlowCard extends HTMLElement {
     const isBattDischarging = battPower > THRESHOLD;
     const isBattCharging = battPower < -THRESHOLD;
 
-    let s_to_h = false, s_to_b = false, s_to_g = false;
-    let g_to_h = false, b_to_h = false, g_to_b = false, h_to_wp = false;
-
+    let s_to_h = false, s_to_b = false, s_to_g = false, g_to_h = false, b_to_h = false, g_to_b = false, h_to_wp = false;
     if (isSolarProducing) {
-      s_to_h = true;
-      if (isBattCharging) s_to_b = true;
-      if (isGridExport) s_to_g = true;
+        s_to_h = true; 
+        if (isBattCharging) s_to_b = true; 
+        if (isGridExport) s_to_g = true;
     }
+
     if (isGridImport) {
-      g_to_h = true;
-      if (isBattCharging) { g_to_b = true; s_to_b = false; }
+        g_to_h = true;
+        if (isBattCharging) {
+             g_to_b = true;
+        }
     }
+
     if (isBattDischarging) b_to_h = true;
-    
-    // WP Logic
+
     const wpEntity = ent(config.wp_entity);
     let wpStateText = 'AUS';
     let isWpRunning = false;
     if (wpEntity) {
       const s = String(wpEntity.state).toLowerCase();
       const n = fnum(wpEntity.state);
-      if (!isNaN(parseFloat(wpEntity.state)) && Number.isFinite(n) && (n > 10 || n < -10)) {
-         wpStateText = `${Math.round(Math.abs(n))} W`;
-         isWpRunning = true;
-      } else if (['on', 'true', '1', 'running'].includes(s)) {
-        isWpRunning = true;
-        wpStateText = 'EIN';
-      }
+      if (!isNaN(parseFloat(wpEntity.state)) && Number.isFinite(n) && (n > 10 || n < -10)) { wpStateText = `${Math.round(Math.abs(n))} W`; isWpRunning = true; } 
+      else if (['on', 'true', '1', 'running'].includes(s)) { isWpRunning = true; wpStateText = 'EIN'; }
     }
     if (isWpRunning) h_to_wp = true;
 
-    // --- DOM Update Functions ---
-    const setText = (id, text) => {
-        const el = this.content.querySelector(id);
-        if (el) el.innerHTML = text; 
-    };
-    
-    const setClass = (id, cls, active) => {
-        const el = this.content.querySelector(id);
-        if (el) el.classList.toggle(cls, active);
-    };
-
-    // 1. Text & Labels
+    const setText = (id, text) => { const el = this.content.querySelector(id); if (el) el.innerHTML = text; };
     setText('#val-solar', `${Math.abs(Math.round(solarVal))}<span class="unit">W</span>`);
     setText('#val-batt-soc', `${Math.abs(Math.round(battSoc))}<span class="unit">%</span>`);
     setText('#val-batt-power', `${Math.abs(Math.round(battPower))} W`);
     setText('#val-home', `${Math.abs(Math.round(homeVal))}<span class="unit">W</span>`);
     setText('#val-grid', `${Math.abs(Math.round(gridVal))}<span class="unit">W</span>`);
-
     setText('#label-solar', config.solar_label);
     setText('#label-batt', config.battery_label);
     setText('#label-home', config.home_label);
     setText('#label-grid', config.grid_label);
     setText('#label-wp', config.wp_label);
 
-    // 2. Circle Colors
     const battEl = this.content.querySelector('#ms-batt');
     battEl.className = 'circle c-batt';
-    if (isBattDischarging) battEl.classList.add('status-green');
-    else if (isBattCharging) battEl.classList.add('status-blue');
-
+    if (isBattDischarging) battEl.classList.add('status-green'); else if (isBattCharging) battEl.classList.add('status-blue');
     const gridEl = this.content.querySelector('#ms-grid');
     gridEl.className = 'circle c-grid';
-    if (isGridImport) gridEl.classList.add('status-red');
-    else if (isGridExport) gridEl.classList.add('status-green');
+    if (isGridImport) gridEl.classList.add('status-red'); else if (isGridExport) gridEl.classList.add('status-green');
 
-    // 3. WP Visibility & State
     const wpEl = this.content.querySelector('#ms-wp');
     const wpPathBg = this.content.querySelector('#p-bg-h-w');
     const wpPathFlow = this.content.querySelector('#p-flow-h-w');
-    
     if (wpEntity) {
-        wpEl.classList.remove('hidden');
-        if (wpPathBg) wpPathBg.classList.remove('hidden');
-        if (wpPathFlow) wpPathFlow.classList.remove('hidden');
-        setText('#val-wp', wpStateText);
-        wpEl.classList.toggle('status-wp', isWpRunning);
-        
+        wpEl.classList.remove('hidden'); wpPathBg.classList.remove('hidden'); wpPathFlow.classList.remove('hidden');
+        setText('#val-wp', wpStateText); wpEl.classList.toggle('status-wp', isWpRunning);
         let wpLineClass = 'flow-wp';
-        if (h_to_wp) {
-            if (isGridImport) wpLineClass = 'flow-red';
-            else if (isBattDischarging || isSolarProducing) wpLineClass = 'flow-green';
-        }
-        if (wpPathFlow) wpPathFlow.setAttribute('class', `path-flow ${wpLineClass} ${h_to_wp ? 'active' : ''}`);
-    } else {
-        wpEl.classList.add('hidden');
-        if (wpPathBg) wpPathBg.classList.add('hidden');
-        if (wpPathFlow) wpPathFlow.classList.add('hidden');
-    }
+        if (h_to_wp) { if (isGridImport) wpLineClass = 'flow-red'; else if (isBattDischarging || isSolarProducing) wpLineClass = 'flow-green'; } 
+        wpPathFlow.setAttribute('class', `path-flow ${wpLineClass} ${h_to_wp ? 'active' : ''}`);
+    } else { 
+        wpEl.classList.add('hidden'); wpPathBg.classList.add('hidden'); wpPathFlow.classList.add('hidden'); 
+    } 
 
-    // 4. Price Badge
     const priceBadge = this.content.querySelector('#ms-price-badge');
     if (config.price_entity) {
         priceBadge.classList.remove('hidden');
         const priceUnit = ent(config.price_entity)?.attributes?.unit_of_measurement ?? '';
         setText('#ms-price-val', `${(ent(config.price_entity) ? fnum(state(config.price_entity)) : 0).toFixed(3)} ${priceUnit}`);
-    } else {
-        priceBadge.classList.add('hidden');
-    }
+    } else { priceBadge.classList.add('hidden'); } 
 
-    // 5. Flow Animation State
-    const setPath = (id, active) => {
-        const p = this.content.querySelector(id);
-        if (p) p.classList.toggle('active', active);
-    };
-    setPath('#p-flow-s-h', s_to_h);
-    setPath('#p-flow-s-b', s_to_b);
-    setPath('#p-flow-s-g', s_to_g);
-    setPath('#p-flow-b-h', b_to_h);
-    setPath('#p-flow-g-h', g_to_h);
-    setPath('#p-flow-g-b', g_to_b);
+    const setPath = (id, active) => { const p = this.content.querySelector(id); if (p) p.classList.toggle('active', active); };
+    setPath('#p-flow-s-h', s_to_h); setPath('#p-flow-s-b', s_to_b); setPath('#p-flow-s-g', s_to_g); setPath('#p-flow-b-h', b_to_h); setPath('#p-flow-g-h', g_to_h); setPath('#p-flow-g-b', g_to_b);
 
-    // 6. Footer Stats
     const footer = this.content.querySelector('#ms-footer');
     if (isDailyVisible) {
         footer.classList.remove('hidden');
-        const dSolar = getVal(config.solar_daily_entity);
-        const dGrid = getVal(config.grid_daily_entity);
-        const dSelf = getVal(config.self_daily_entity);
-        const dCons = getVal(config.consumption_daily_entity);
-
-        const pSolarSelf = dSolar > 0 ? (dSelf / dSolar) * 100 : 0;
-        const pConsPV = dCons > 0 ? (dSelf / dCons) * 100 : 0;
-        
-        const mkRing = (percent, colorMain, colorBg) => {
-            const p = Math.min(Math.max(percent, 0), 100);
-            return `<svg viewBox="0 0 36 36" class="donut-chart"><path class="donut-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" stroke="${colorBg}" /><path class="donut-seg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" stroke="${colorMain}" stroke-dasharray="${p}, 100" /></svg>`;
-        };
-
-        setText('#stat-solar-val', `${dSolar.toFixed(1)} kWh`);
-        setText('#stat-solar-self', `${dSelf.toFixed(1)} Eigen`);
-        setText('#stat-solar-grid', `${(dSolar - dSelf).toFixed(1)} Netz`);
+        const dSolar = getVal(config.solar_daily_entity); const dGrid = getVal(config.grid_daily_entity); const dSelf = getVal(config.self_daily_entity); const dCons = getVal(config.consumption_daily_entity);
+        const pSolarSelf = dSolar > 0 ? (dSelf / dSolar) * 100 : 0; const pConsPV = dCons > 0 ? (dSelf / dCons) * 100 : 0;
+        const mkRing = (percent, colorMain, colorBg) => { const p = Math.min(Math.max(percent, 0), 100); return `<svg viewBox="0 0 36 36" class="donut-chart"><path class="donut-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" stroke="${colorBg}" /><path class="donut-seg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" stroke="${colorMain}" stroke-dasharray="${p}, 100" /></svg>`; };
+        setText('#stat-solar-val', `${dSolar.toFixed(1)} kWh`); setText('#stat-solar-self', `${dSelf.toFixed(1)} Eigen`); setText('#stat-solar-grid', `${(dSolar - dSelf).toFixed(1)} Netz`);
         this.content.querySelector('#chart-solar').innerHTML = mkRing(pSolarSelf, 'var(--ms-color-solar)', 'var(--ms-color-orange)');
-
-        setText('#stat-cons-val', `${dCons.toFixed(1)} kWh`);
-        setText('#stat-cons-pv', `${pConsPV.toFixed(0)}% PV`);
-        setText('#stat-cons-grid', `${(100 - pConsPV).toFixed(0)}% Netz`);
+        setText('#stat-cons-val', `${dCons.toFixed(1)} kWh`); setText('#stat-cons-pv', `${pConsPV.toFixed(0)}% PV`); setText('#stat-cons-grid', `${(100 - pConsPV).toFixed(0)}% Netz`);
         this.content.querySelector('#chart-cons').innerHTML = mkRing(pConsPV, 'var(--ms-color-blue)', 'var(--ms-color-red)');
-    } else {
-        footer.classList.add('hidden');
-    }
+    } else { footer.classList.add('hidden'); }
   }
 
   _drawPaths() {
@@ -417,50 +349,15 @@ class ModernSolarFlowCard extends HTMLElement {
     const svg = this.content.querySelector('#ms-svg');
     const area = this.content.querySelector('.diagram-area');
     if (!svg || !area) return;
-
-    // Helper to get coordinates, handling hidden elements gracefully
-    const getPos = (id) => {
-        const el = this.content.querySelector(id);
-        // If element is hidden (e.g. WP), we can't get dimensions, but layout shouldn't break.
-        if (!el || el.offsetParent === null) return null; 
-        const r = el.getBoundingClientRect();
-        const ar = area.getBoundingClientRect();
-        return { x: (r.left - ar.left) + r.width / 2, y: (r.top - ar.top) + r.height / 2 };
-    };
-
-    const S = getPos('#ms-solar');
-    const B = getPos('#ms-batt');
-    const H = getPos('#ms-home');
-    const G = getPos('#ms-grid');
-    const W = getPos('#ms-wp');
-
+    const getPos = (id) => { const el = this.content.querySelector(id); if (!el || el.offsetParent === null) return null; const r = el.getBoundingClientRect(); const ar = area.getBoundingClientRect(); return { x: (r.left - ar.left) + r.width / 2, y: (r.top - ar.top) + r.height / 2 }; };
+    const S = getPos('#ms-solar'), B = getPos('#ms-batt'), H = getPos('#ms-home'), G = getPos('#ms-grid'), W = getPos('#ms-wp');
     if (!S || !B || !H || !G) return; 
-
     svg.setAttribute('viewBox', `0 0 ${area.clientWidth} ${area.clientHeight}`);
-    
     const line = (a, b) => `M ${a.x} ${a.y} L ${b.x} ${b.y}`;
-    const curve = (a, b) => {
-      const bend = 0.35;
-      return `M ${a.x} ${a.y} C ${a.x} ${a.y + (b.y - a.y) * bend}, ${b.x} ${a.y + (b.y - a.y) * bend}, ${b.x} ${b.y}`;
-    };
-
-    const updatePath = (id, d) => {
-        const p1 = this.content.querySelector(id.replace('flow', 'bg'));
-        const p2 = this.content.querySelector(id);
-        if (p1) p1.setAttribute('d', d);
-        if (p2) p2.setAttribute('d', d);
-    }
-
-    updatePath('#p-flow-s-h', line(S, H));
-    updatePath('#p-flow-s-b', curve(S, B));
-    updatePath('#p-flow-s-g', curve(S, G));
-    updatePath('#p-flow-b-h', line(B, H));
-    updatePath('#p-flow-g-h', line(G, H));
-    updatePath('#p-flow-g-b', line(G, B));
-    
-    if (W) {
-        updatePath('#p-flow-h-w', line(H, W));
-    }
+    const curve = (a, b) => { const bend = 0.35; return `M ${a.x} ${a.y} C ${a.x} ${a.y + (b.y - a.y) * bend}, ${b.x} ${a.y + (b.y - a.y) * bend}, ${b.x} ${b.y}` };
+    const updatePath = (id, d) => { const p1 = this.content.querySelector(id.replace('flow', 'bg')); const p2 = this.content.querySelector(id); if (p1) p1.setAttribute('d', d); if (p2) p2.setAttribute('d', d); }
+    updatePath('#p-flow-s-h', line(S, H)); updatePath('#p-flow-s-b', curve(S, B)); updatePath('#p-flow-s-g', curve(S, G)); updatePath('#p-flow-b-h', line(B, H)); updatePath('#p-flow-g-h', line(G, H)); updatePath('#p-flow-g-b', line(G, B));
+    if (W) updatePath('#p-flow-h-w', line(H, W));
   }
 
   static getConfigElement() { return document.createElement('modern-solar-flow-card-editor'); }
@@ -469,11 +366,7 @@ class ModernSolarFlowCard extends HTMLElement {
 
 class ModernSolarFlowCardEditor extends HTMLElement {
   setConfig(config) { this._config = config; this.render(); }
-  set hass(hass) { 
-    this._hass = hass;
-    const form = this.querySelector('ha-form');
-    if (form) form.hass = hass;
-  }
+  set hass(hass) { this._hass = hass; const form = this.querySelector('ha-form'); if (form) form.hass = hass; }
   render() {
     if (this.innerHTML) return;
     const form = document.createElement('ha-form');
@@ -485,16 +378,14 @@ class ModernSolarFlowCardEditor extends HTMLElement {
       { name: "battery_power_entity", label: "Batterie Leistung (W)", selector: { entity: { domain: "sensor" } } },
       { name: "invert_battery", label: "Batterie invertieren (Laden ist positiv)", selector: { boolean: {} } },
       { name: "battery_entity", label: "Batterie Ladestand (%)", selector: { entity: { domain: "sensor" } } },
-      { name: "wp_entity", label: "Wärmepumpe/Zusatzlast (Optional)", selector: { entity: { domain: ["binary_sensor", "sensor"] } } },
+      { name: "wp_entity", label: "Wärmepumpe/Zusatzlast (Optional)", selector: { entity: { } } },
       { name: "price_entity", label: "Strompreis (Optional)", selector: { entity: { domain: "sensor" } } },
-      
       { name: "", type: "section", header: "Tageswerte (kWh)" },
       { name: "show_daily_stats", label: "Tageswerte anzeigen?", selector: { boolean: {} } },
       { name: "solar_daily_entity", label: "Solar Tagesertrag", selector: { entity: { domain: "sensor" } } },
       { name: "grid_daily_entity", label: "Netz Einspeisung Tag", selector: { entity: { domain: "sensor" } } },
       { name: "consumption_daily_entity", label: "Gesamtverbrauch Tag", selector: { entity: { domain: "sensor" } } },
       { name: "self_daily_entity", label: "Eigenverbrauch Tag", selector: { entity: { domain: "sensor" } } },
-      
       { name: "", type: "section", header: "Beschriftungen" },
       { name: "solar_label", label: "Label Solar", selector: { text: {} } },
       { name: "grid_label", label: "Label Netz", selector: { text: {} } },
@@ -502,14 +393,9 @@ class ModernSolarFlowCardEditor extends HTMLElement {
       { name: "home_label", label: "Label Haus", selector: { text: {} } },
       { name: "wp_label", label: "Label Zusatzlast", selector: { text: {} } },
     ];
-    form.data = this._config;
-    if (this._hass) form.hass = this._hass;
+    form.data = this._config; if (this._hass) form.hass = this._hass;
     form.computeLabel = (s) => s.label;
-    form.addEventListener('value-changed', (ev) => {
-      const event = new Event("config-changed", { bubbles: true, composed: true });
-      event.detail = { config: ev.detail.value };
-      this.dispatchEvent(event);
-    });
+    form.addEventListener('value-changed', (ev) => { const event = new Event("config-changed", { bubbles: true, composed: true }); event.detail = { config: ev.detail.value }; this.dispatchEvent(event); });
     this.appendChild(form);
   }
 }
