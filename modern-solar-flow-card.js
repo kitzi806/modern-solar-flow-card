@@ -1,4 +1,4 @@
-const CARD_VERSION = '0.5.1';
+const CARD_VERSION = '0.5.3';
 
 console.info(
   `%c  MODERN-SOLAR-FLOW-CARD  \n%c  Version ${CARD_VERSION}    `,
@@ -87,7 +87,7 @@ class ModernSolarFlowCard extends HTMLElement {
           <div class="label" id="label-grid"></div>
         </div>
         <div class="circle c-wp hidden" id="ms-wp">
-          <ha-icon icon="mdi:heat-pump" class="icon-small"></ha-icon>
+          <ha-icon icon="mdi:heat-pump" class="icon"></ha-icon>
           <div class="val" id="val-wp">--</div>
           <div class="label" id="label-wp"></div>
         </div>
@@ -101,7 +101,7 @@ class ModernSolarFlowCard extends HTMLElement {
         <div class="stat-block"><div class="chart-wrap" id="chart-solar"></div><div class="stat-info"><div class="stat-main" id="stat-solar-val">--</div><div class="stat-sub"><span class="dot" style="background:var(--ms-color-solar)"></span><span id="stat-solar-self">--</span></div><div class="stat-sub"><span class="dot" style="background:var(--ms-color-orange)"></span><span id="stat-solar-grid">--</span></div></div></div>
         <div class="stat-block"><div class="chart-wrap" id="chart-cons"></div><div class="stat-info"><div class="stat-main" id="stat-cons-val">--</div><div class="stat-sub"><span class="dot" style="background:var(--ms-color-blue)"></span><span id="stat-cons-pv">--</span></div><div class="stat-sub"><span class="dot" style="background:var(--ms-color-red)"></span><span id="stat-cons-grid">--</span></div></div></div>
       </div>
-    `;
+    `
 
     this._ro = new ResizeObserver(() => {
       if (this._resizeTimer) clearTimeout(this._resizeTimer);
@@ -133,36 +133,40 @@ class ModernSolarFlowCard extends HTMLElement {
 
     const css = `.solar-root { ${styleVars} position: relative; isolation: isolate; height: ${isDailyVisible ? '540px' : '440px'}; background: var(--ms-bg); border: var(--ms-card-border); border-radius: 20px; box-shadow: var(--ms-shadow); overflow: hidden; display: flex; flex-direction: column; font-family: 'Roboto', sans-serif; box-sizing: border-box; transition: height 0.3s ease; } .diagram-area { position: relative; flex-grow: 1; width: 100%; } .price-badge { position: absolute; top: 15px; right: 15px; background: var(--ms-circle-bg); opacity: 0.9; border: 1px solid var(--ms-text-unit); padding: 4px 10px; border-radius: 15px; font-size: 12px; font-weight: 700; color: var(--ms-text-val); z-index: 50; display: flex; align-items: center; gap: 6px; } .hidden { display: none !important; } 
     .circle { position: absolute; background: var(--ms-circle-bg); border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; border: var(--ms-circle-border); box-shadow: 0 8px 20px rgba(0,0,0,0.12); z-index: 20; transition: border-color 0.3s ease; padding: 5px; box-sizing: border-box; } 
-    .icon { --mdc-icon-size: 24px; color: var(--ms-text-label); margin-bottom: 4px; } .icon-small { --mdc-icon-size: 18px; color: var(--ms-text-label); margin-bottom: 2px; }
+    .icon { --mdc-icon-size: 24px; color: var(--ms-text-label); margin-bottom: 2px; } .icon-small { --mdc-icon-size: 18px; color: var(--ms-text-label); margin-bottom: 2px; }
     .c-solar { top: 20px; left: 50%; transform: translateX(-50%); width: 115px; height: 115px; } 
     .c-batt { top: 180px; left: 10px; width: 95px; height: 95px; } 
     .c-home { top: 180px; left: 50%; transform: translateX(-50%); width: 95px; height: 95px; border: none; } 
     .c-grid { top: 180px; right: 10px; width: 95px; height: 95px; } 
-    .c-wp { top: 320px; left: 50%; transform: translateX(-50%); width: 75px; height: 75px; border-color: var(--ms-color-wp); } 
-    .c-dhw { top: 260px; left: calc(50% + 85px); width: 75px; height: 75px; border-color: var(--ms-color-red); }
+    .c-wp { top: 320px; left: 50%; transform: translateX(-50%); width: 95px; height: 95px; border-color: var(--ms-color-wp); } 
+    .c-dhw { top: 275px; left: calc(50% + 75px); width: 80px; height: 80px; border-color: var(--ms-color-red); }
     .home-ring-container { position: absolute; top: -3px; left: -3px; width: calc(100% + 6px); height: calc(100% + 6px); z-index: 10; transform: rotate(-90deg); pointer-events: none; } 
     .status-red { border-color: var(--ms-color-red) !important; } .status-green { border-color: var(--ms-color-solar) !important; } .status-blue { border-color: var(--ms-color-blue) !important; } .status-wp { border-color: var(--ms-color-wp) !important; } 
-    .val { font-size: 18px; font-weight: 900; color: var(--ms-text-val); line-height: 1; z-index: 5; text-align: center; } 
-    .val-small { font-size: 12px; font-weight: 700; color: var(--ms-text-val); line-height: 1; z-index: 5; text-align: center; }
+    .val { font-size: 18px; font-weight: 900; color: var(--ms-text-val); line-height: 1; z-index: 5; text-align: center; width: 100%; display: flex; justify-content: center; align-items: center; } 
+    .val-small { font-size: 12px; font-weight: 700; color: var(--ms-text-val); line-height: 1; z-index: 5; text-align: center; width: 100%; }
     .unit { font-size: 11px; font-weight: 500; color: var(--ms-text-unit); margin-left: 1px; } 
-    .sub-val { font-size: 12px; font-weight: 600; color: var(--ms-text-unit); line-height: 1; margin-top: 4px; z-index: 5; text-align: center; } 
-    .label { font-size: 9px; font-weight: 700; color: var(--ms-text-label); text-transform: uppercase; line-height: 1; margin-top: 4px; z-index: 5; text-align: center; } 
+    .sub-val { font-size: 12px; font-weight: 600; color: var(--ms-text-unit); line-height: 1; margin-top: 4px; z-index: 5; text-align: center; width: 100%; } 
+    .label { font-size: 9px; font-weight: 700; color: var(--ms-text-label); text-transform: uppercase; line-height: 1; margin-top: 4px; z-index: 5; text-align: center; width: 100%; } 
     .c-solar .val { font-size: 26px; } #ms-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; } 
     .path-bg { fill: none; stroke: var(--ms-path-bg); stroke-width: 4px; opacity: 0.2; stroke-linecap: round; } 
     .path-flow { fill: none; stroke: var(--ms-color-solar); stroke-width: 5px; stroke-dasharray: 12; opacity: 0; stroke-linecap: round; transition: stroke 0.3s ease, opacity 0.3s ease; } 
     .path-flow.flow-red { stroke: var(--ms-color-red) !important; filter: var(--ms-glow-red); } .path-flow.flow-green { stroke: var(--ms-color-solar) !important; filter: var(--ms-glow-green); } .path-flow.flow-blue { stroke: var(--ms-color-blue) !important; filter: var(--ms-glow-blue); } .path-flow.flow-wp { stroke: var(--ms-color-wp) !important; filter: var(--ms-glow-orange); } .active { opacity: 1; animation: dash 1s linear infinite; } @keyframes dash { from { stroke-dashoffset: 24; } to { stroke-dashoffset: 0; } } 
     .stats-footer { height: 100px; background: var(--ms-bar-bg); backdrop-filter: blur(5px); border-top: 1px solid var(--ms-text-unit); display: flex; justify-content: space-around; align-items: center; padding: 0 10px; z-index: 30; } .stat-block { width: 45%; display: flex; align-items: center; justify-content: center; gap: 10px; } .chart-wrap { width: 55px; height: 55px; } .donut-chart { width: 100%; height: 100%; transform: rotate(-90deg); } .donut-bg { fill: none; stroke-width: 4; } .donut-seg { fill: none; stroke-width: 4; stroke-linecap: round; } .stat-info { display: flex; flex-direction: column; justify-content: center; } .stat-main { font-size: 15px; font-weight: 900; color: var(--ms-text-val); } .stat-sub { font-size: 10px; color: var(--ms-text-unit); display: flex; align-items: center; gap: 5px; } .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }`;
+    
     const styleEl = this.content.querySelector('#ms-style'); if (styleEl && styleEl.innerHTML !== css) styleEl.innerHTML = css;
 
-    const solarVal = this._getVal(config.solar_entity); let gridVal = this._getVal(config.grid_entity); if (config.invert_grid) gridVal *= -1;
-    let battPower = this._getVal(config.battery_power_entity); if (config.invert_battery) battPower *= -1; 
+    const solarVal = this._getVal(config.solar_entity); 
+    let gridVal = this._getVal(config.grid_entity); 
+    if (config.invert_grid) gridVal *= -1;
+    let battPower = this._getVal(config.battery_power_entity); 
+    if (config.invert_battery) battPower *= -1; 
     const battSoc = this._getVal(config.battery_entity);
     let homeVal = config.use_home_calc !== false ? (solarVal + gridVal + battPower) : this._getVal(config.home_entity);
 
     const THRESHOLD = 10; const isSolarProducing = solarVal > THRESHOLD; const isGridImport = gridVal > THRESHOLD; const isGridExport = gridVal < -THRESHOLD; const isBattDischarging = battPower > THRESHOLD; const isBattCharging = battPower < -THRESHOLD;
 
     let s_to_h = false, s_to_b = false, s_to_g = false, g_to_h = false, b_to_h = false, g_to_b = false;
-    if (isSolarProducing) { s_to_h = true; if (isBattCharging) s_to_b = true; if (isGridExport) s_to_g = true; }
+    if (isSolarProducing) { s_to_h = true; if (isBattCharging) s_to_b = true; if (isGridExport) s_to_g = true; } 
     if (isGridImport) { g_to_h = true; if (isBattCharging) g_to_b = true; }
     if (isBattDischarging) b_to_h = true;
 
@@ -176,12 +180,13 @@ class ModernSolarFlowCard extends HTMLElement {
     const solarEl = this.content.querySelector('#ms-solar'); solarEl.className = 'circle c-solar'; if (isSolarProducing) solarEl.classList.add('status-green');
     const battEl = this.content.querySelector('#ms-batt'); battEl.className = 'circle c-batt';
     if (isBattDischarging) battEl.classList.add('status-green'); else if (isBattCharging) battEl.classList.add('status-blue');
+    
     const gridEl = this.content.querySelector('#ms-grid'); gridEl.className = 'circle c-grid';
     if (isGridImport) gridEl.classList.add('status-red'); else if (isGridExport) gridEl.classList.add('status-green');
 
     const homeRing = this.content.querySelector('#home-ring');
-    if (homeVal > 0) { const importVal = isGridImport ? gridVal : 0; const autarky = Math.max(0, Math.min(100, ((homeVal - importVal) / homeVal) * 100)); homeRing.innerHTML = this._mkRing(autarky, 'var(--ms-color-solar)', 'var(--ms-color-red)', 2); } 
-    else { homeRing.innerHTML = this._mkRing(100, 'var(--ms-color-solar)', 'var(--ms-color-solar)', 2); }
+    if (homeVal > 0) { const importVal = isGridImport ? gridVal : 0; const autarky = Math.max(0, Math.min(100, ((homeVal - importVal) / homeVal) * 100)); homeRing.innerHTML = this._mkRing(autarky, 'var(--ms-color-solar)', 'var(--ms-color-red)', 2.5); } 
+    else { homeRing.innerHTML = this._mkRing(100, 'var(--ms-color-solar)', 'var(--ms-color-solar)', 2.5); }
 
     const wpEntity = this._ent(config.wp_entity);
     if (wpEntity) {
@@ -195,7 +200,9 @@ class ModernSolarFlowCard extends HTMLElement {
       wpEl.classList.toggle('status-wp', isWpRunning);
       let wpLineClass = 'flow-wp'; if (isWpRunning) { if (isGridImport) wpLineClass = 'flow-red'; else wpLineClass = 'flow-green'; }
       wpPathFlow.setAttribute('class', `path-flow ${wpLineClass} ${isWpRunning ? 'active' : ''}`);
-    } else { this.content.querySelector('#ms-wp').classList.add('hidden'); this.content.querySelector('#p-bg-h-w').classList.add('hidden'); this.content.querySelector('#p-flow-h-w').classList.add('hidden'); }
+    } else {
+      this.content.querySelector('#ms-wp').classList.add('hidden'); this.content.querySelector('#p-bg-h-w').classList.add('hidden'); this.content.querySelector('#p-flow-h-w').classList.add('hidden');
+    }
 
     const dhwEl = this.content.querySelector('#ms-dhw'); const dhwLine = this.content.querySelector('#p-bg-w-d');
     if (config.show_dhw && (config.dhw_temp_top_entity || config.dhw_temp_bottom_entity)) {
