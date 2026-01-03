@@ -1,4 +1,4 @@
-const CARD_VERSION = '1.0.7';
+const CARD_VERSION = '1.0.8';
 
 console.info(
   `%c  MODERN-SOLAR-FLOW-CARD  \n%c  Version ${CARD_VERSION}    `,
@@ -30,6 +30,7 @@ class ModernSolarFlowCard extends HTMLElement {
       invert_grid: false,
       invert_battery: false,
       show_daily_stats: true,
+      use_home_calc: true, // Default to auto-calculation
       ...config
     };
     
@@ -105,7 +106,7 @@ class ModernSolarFlowCard extends HTMLElement {
           </div>
         </div>
       </div>
-    `
+    `;
 
     this._ro = new ResizeObserver(() => {
       if (this._resizeTimer) clearTimeout(this._resizeTimer);
@@ -122,7 +123,6 @@ class ModernSolarFlowCard extends HTMLElement {
     const isDark = hass.themes?.darkMode ?? false;
     const isDailyVisible = config.show_daily_stats !== false;
 
-    // Tweaked colors for better visibility in Dark Mode
     const styleVars = isDark ? `
       --ms-bg: linear-gradient(180deg, #111827 0%, #000000 100%);
       --ms-card-border: 1px solid #1f2937;
@@ -133,11 +133,11 @@ class ModernSolarFlowCard extends HTMLElement {
       --ms-text-label: #9ca3af;
       --ms-text-unit: #6b7280;
       --ms-path-bg: #374151;
-      --ms-glow: drop-shadow(0 0 4px rgba(74, 222, 128, 0.6)); /* Stronger Glow */
+      --ms-glow: drop-shadow(0 0 4px rgba(74, 222, 128, 0.6));
       --ms-bar-bg: rgba(31, 41, 55, 0.6);
-      --ms-color-solar: #4ade80; /* Bright Green */
-      --ms-color-red: #f87171;   /* Bright Red */
-      --ms-color-blue: #60a5fa;  /* Bright Blue */
+      --ms-color-solar: #4ade80;
+      --ms-color-red: #f87171;
+      --ms-color-blue: #60a5fa;
       --ms-color-orange: #fb8c00;
       --ms-color-wp: #fb8c00;
     ` : `
@@ -214,7 +214,6 @@ class ModernSolarFlowCard extends HTMLElement {
         .path-bg { fill: none; stroke: var(--ms-path-bg); stroke-width: 4px; opacity: 0.9; }
         .path-flow { fill: none; stroke: var(--ms-color-solar); stroke-width: 4px; stroke-dasharray: 12; opacity: 0; filter: var(--ms-glow); transition: stroke 0.3s ease, opacity 0.3s ease; }
         
-        /* Ensure specific colors win */
         .path-flow.flow-red { stroke: var(--ms-color-red) !important; }
         .path-flow.flow-green { stroke: var(--ms-color-solar) !important; }
         .path-flow.flow-blue { stroke: var(--ms-color-blue) !important; }
@@ -257,9 +256,16 @@ class ModernSolarFlowCard extends HTMLElement {
     let battPower = getVal(config.battery_power_entity);
     if (config.invert_battery) battPower *= -1; 
     const battSoc = getVal(config.battery_entity);
-    let homeVal = config.home_entity ? getVal(config.home_entity) : (solarVal + gridVal + battPower);
+    
+    // Auto Calc Logic
+    let homeVal = 0;
+    if (config.use_home_calc === false && config.home_entity) {
+      homeVal = getVal(config.home_entity);
+    } else {
+      homeVal = solarVal + gridVal + battPower; 
+    }
 
-    const THRESHOLD = 10; // Keeping 10W, as colors should now be brighter
+    const THRESHOLD = 10; 
     const isSolarProducing = solarVal > THRESHOLD;
     const isGridImport = gridVal > THRESHOLD;
     const isGridExport = gridVal < -THRESHOLD;
@@ -320,7 +326,7 @@ class ModernSolarFlowCard extends HTMLElement {
         wpEl.classList.remove('hidden'); wpPathBg.classList.remove('hidden'); wpPathFlow.classList.remove('hidden');
         setText('#val-wp', wpStateText); wpEl.classList.toggle('status-wp', isWpRunning);
         let wpLineClass = 'flow-wp';
-        if (h_to_wp) { if (isGridImport) wpLineClass = 'flow-red'; else if (isBattDischarging || isSolarProducing) wpLineClass = 'flow-green'; }
+        if (h_to_wp) { if (isGridImport) wpLineClass = 'flow-red'; else if (isBattDischarging || isSolarProducing) wpLineClass = 'flow-green'; } 
         wpPathFlow.setAttribute('class', `path-flow ${wpLineClass} ${h_to_wp ? 'active' : ''}`);
     } else {
         wpEl.classList.add('hidden'); wpPathBg.classList.add('hidden'); wpPathFlow.classList.add('hidden');
@@ -359,7 +365,7 @@ class ModernSolarFlowCard extends HTMLElement {
     if (!S || !B || !H || !G) return; 
     svg.setAttribute('viewBox', `0 0 ${area.clientWidth} ${area.clientHeight}`);
     const line = (a, b) => `M ${a.x} ${a.y} L ${b.x} ${b.y}`;
-    const curve = (a, b) => { const bend = 0.35; return `M ${a.x} ${a.y} C ${a.x} ${a.y + (b.y - a.y) * bend}, ${b.x} ${a.y + (b.y - a.y) * bend}, ${b.x} ${b.y}` };
+    const curve = (a, b) => { const bend = 0.35; return `M ${a.x} ${a.y} C ${a.x} ${a.y + (b.y - a.y) * bend}, ${b.x} ${a.y + (b.y - a.y) * bend}, ${b.x} ${b.y}`; };
     const updatePath = (id, d) => { const p1 = this.content.querySelector(id.replace('flow', 'bg')); const p2 = this.content.querySelector(id); if (p1) p1.setAttribute('d', d); if (p2) p2.setAttribute('d', d); }
     updatePath('#p-flow-s-h', line(S, H)); updatePath('#p-flow-s-b', curve(S, B)); updatePath('#p-flow-s-g', curve(S, G)); updatePath('#p-flow-b-h', line(B, H)); updatePath('#p-flow-g-h', line(G, H)); updatePath('#p-flow-g-b', line(G, B));
     if (W) updatePath('#p-flow-h-w', line(H, W));
@@ -378,7 +384,8 @@ class ModernSolarFlowCardEditor extends HTMLElement {
     form.schema = [
       { name: "solar_entity", label: "Solar Leistung (W)", selector: { entity: { domain: "sensor" } } },
       { name: "grid_entity", label: "Netz Leistung (W)", selector: { entity: { domain: "sensor" } } },
-      { name: "home_entity", label: "Hausverbrauch Leistung (W) [Optional]", selector: { entity: { domain: "sensor" } } },
+      { name: "use_home_calc", label: "Hausverbrauch automatisch berechnen? (Solar + Netz + Akku)", selector: { boolean: {} } },
+      { name: "home_entity", label: "Hausverbrauch Leistung (W) [Falls NICHT automatisch]", selector: { entity: { domain: "sensor" } } },
       { name: "invert_grid", label: "Netz invertieren (Export ist positiv)", selector: { boolean: {} } },
       { name: "battery_power_entity", label: "Batterie Leistung (W)", selector: { entity: { domain: "sensor" } } },
       { name: "invert_battery", label: "Batterie invertieren (Laden ist positiv)", selector: { boolean: {} } },
