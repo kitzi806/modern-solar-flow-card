@@ -1,4 +1,4 @@
-const CARD_VERSION = '1.0.8';
+const CARD_VERSION = '1.0.9';
 
 console.info(
   `%c  MODERN-SOLAR-FLOW-CARD  \n%c  Version ${CARD_VERSION}    `,
@@ -30,7 +30,7 @@ class ModernSolarFlowCard extends HTMLElement {
       invert_grid: false,
       invert_battery: false,
       show_daily_stats: true,
-      use_home_calc: true, // Default to auto-calculation
+      use_home_calc: true, 
       ...config
     };
     
@@ -196,7 +196,7 @@ class ModernSolarFlowCard extends HTMLElement {
         .c-batt  { top: 180px; left: 10px; width: 95px; height: 95px; }
         .c-home  { top: 180px; left: 50%; transform: translateX(-50%); width: 95px; height: 95px; }
         .c-grid  { top: 180px; right: 10px; width: 95px; height: 95px; }
-        .c-wp    { top: 360px; left: 50%; transform: translateX(-50%); width: 70px; height: 70px; border-color: var(--ms-color-wp); }
+        .c-wp    { top: 320px; left: 50%; transform: translateX(-50%); width: 70px; height: 70px; border-color: var(--ms-color-wp); }
         
         .status-red { border-color: var(--ms-color-red) !important; }
         .status-green { border-color: var(--ms-color-solar) !important; }
@@ -257,7 +257,6 @@ class ModernSolarFlowCard extends HTMLElement {
     if (config.invert_battery) battPower *= -1; 
     const battSoc = getVal(config.battery_entity);
     
-    // Auto Calc Logic
     let homeVal = 0;
     if (config.use_home_calc === false && config.home_entity) {
       homeVal = getVal(config.home_entity);
@@ -273,20 +272,8 @@ class ModernSolarFlowCard extends HTMLElement {
     const isBattCharging = battPower < -THRESHOLD;
 
     let s_to_h = false, s_to_b = false, s_to_g = false, g_to_h = false, b_to_h = false, g_to_b = false, h_to_wp = false;
-    
-    if (isSolarProducing) {
-        s_to_h = true; 
-        if (isBattCharging) s_to_b = true; 
-        if (isGridExport) s_to_g = true;
-    }
-
-    if (isGridImport) {
-        g_to_h = true;
-        if (isBattCharging) {
-             g_to_b = true;
-        }
-    }
-
+    if (isSolarProducing) { s_to_h = true; if (isBattCharging) s_to_b = true; if (isGridExport) s_to_g = true; }
+    if (isGridImport) { g_to_h = true; if (isBattCharging) g_to_b = true; }
     if (isBattDischarging) b_to_h = true;
 
     const wpEntity = ent(config.wp_entity);
@@ -326,7 +313,7 @@ class ModernSolarFlowCard extends HTMLElement {
         wpEl.classList.remove('hidden'); wpPathBg.classList.remove('hidden'); wpPathFlow.classList.remove('hidden');
         setText('#val-wp', wpStateText); wpEl.classList.toggle('status-wp', isWpRunning);
         let wpLineClass = 'flow-wp';
-        if (h_to_wp) { if (isGridImport) wpLineClass = 'flow-red'; else if (isBattDischarging || isSolarProducing) wpLineClass = 'flow-green'; } 
+        if (h_to_wp) { if (isGridImport) wpLineClass = 'flow-red'; else if (isBattDischarging || isSolarProducing) wpLineClass = 'flow-green'; }
         wpPathFlow.setAttribute('class', `path-flow ${wpLineClass} ${h_to_wp ? 'active' : ''}`);
     } else {
         wpEl.classList.add('hidden'); wpPathBg.classList.add('hidden'); wpPathFlow.classList.add('hidden');
@@ -337,7 +324,7 @@ class ModernSolarFlowCard extends HTMLElement {
         priceBadge.classList.remove('hidden');
         const priceUnit = ent(config.price_entity)?.attributes?.unit_of_measurement ?? '';
         setText('#ms-price-val', `${(ent(config.price_entity) ? fnum(state(config.price_entity)) : 0).toFixed(3)} ${priceUnit}`);
-    } else { priceBadge.classList.add('hidden'); } 
+    } else { priceBadge.classList.add('hidden'); }
 
     const setPath = (id, active) => { const p = this.content.querySelector(id); if (p) p.classList.toggle('active', active); };
     setPath('#p-flow-s-h', s_to_h); setPath('#p-flow-s-b', s_to_b); setPath('#p-flow-s-g', s_to_g); setPath('#p-flow-b-h', b_to_h); setPath('#p-flow-g-h', g_to_h); setPath('#p-flow-g-b', g_to_b);
@@ -385,7 +372,7 @@ class ModernSolarFlowCardEditor extends HTMLElement {
       { name: "solar_entity", label: "Solar Leistung (W)", selector: { entity: { domain: "sensor" } } },
       { name: "grid_entity", label: "Netz Leistung (W)", selector: { entity: { domain: "sensor" } } },
       { name: "use_home_calc", label: "Hausverbrauch automatisch berechnen? (Solar + Netz + Akku)", selector: { boolean: {} } },
-      { name: "home_entity", label: "Hausverbrauch Leistung (W) [Falls NICHT automatisch]", selector: { entity: { domain: "sensor" } } },
+      ...(this._config.use_home_calc === false ? [{ name: "home_entity", label: "Hausverbrauch Leistung (W)", selector: { entity: { domain: "sensor" } } }] : []),
       { name: "invert_grid", label: "Netz invertieren (Export ist positiv)", selector: { boolean: {} } },
       { name: "battery_power_entity", label: "Batterie Leistung (W)", selector: { entity: { domain: "sensor" } } },
       { name: "invert_battery", label: "Batterie invertieren (Laden ist positiv)", selector: { boolean: {} } },
@@ -407,7 +394,17 @@ class ModernSolarFlowCardEditor extends HTMLElement {
     ];
     form.data = this._config; if (this._hass) form.hass = this._hass;
     form.computeLabel = (s) => s.label;
-    form.addEventListener('value-changed', (ev) => { const event = new Event("config-changed", { bubbles: true, composed: true }); event.detail = { config: ev.detail.value }; this.dispatchEvent(event); });
+    form.addEventListener('value-changed', (ev) => {
+      const config = ev.detail.value;
+      const event = new Event("config-changed", { bubbles: true, composed: true });
+      event.detail = { config: config };
+      this.dispatchEvent(event);
+      if (config.use_home_calc !== this._config.use_home_calc) {
+          this.innerHTML = ''; 
+          this._config = config;
+          this.render();
+      }
+    });
     this.appendChild(form);
   }
 }
