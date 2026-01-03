@@ -1,4 +1,4 @@
-const CARD_VERSION = '0.3.9';
+const CARD_VERSION = '0.4.0';
 
 console.info(
   `%c  MODERN-SOLAR-FLOW-CARD  \n%c  Version ${CARD_VERSION}    `,
@@ -98,7 +98,7 @@ class ModernSolarFlowCard extends HTMLElement {
         <div class=\"stat-block\"><div class=\"chart-wrap\" id=\"chart-solar\"></div><div class=\"stat-info\"><div class=\"stat-main\" id=\"stat-solar-val\">--</div><div class=\"stat-sub\"><span class=\"dot\" style=\"background:var(--ms-color-solar)\"></span><span id=\"stat-solar-self\">--</span></div><div class=\"stat-sub\"><span class=\"dot\" style=\"background:var(--ms-color-orange)\"></span><span id=\"stat-solar-grid\">--</span></div></div></div>
         <div class=\"stat-block\"><div class=\"chart-wrap\" id=\"chart-cons\"></div><div class=\"stat-info\"><div class=\"stat-main\" id=\"stat-cons-val\">--</div><div class=\"stat-sub\"><span class=\"dot\" style=\"background:var(--ms-color-blue)\"></span><span id=\"stat-cons-pv\">--</span></div><div class=\"stat-sub\"><span class=\"dot\" style=\"background:var(--ms-color-red)\"></span><span id=\"stat-cons-grid\">--</span></div></div></div>
       </div>
-    `;
+    `
 
     this._ro = new ResizeObserver(() => {
       if (this._resizeTimer) clearTimeout(this._resizeTimer);
@@ -201,7 +201,7 @@ class ModernSolarFlowCard extends HTMLElement {
       wpEl.classList.remove('hidden'); wpPathBg.classList.remove('hidden'); wpPathFlow.classList.remove('hidden');
       setText('#val-wp', isWpRunning ? (hasPower ? `${Math.round(Math.abs(n))} W` : 'EIN') : 'AUS');
       wpEl.classList.toggle('status-wp', isWpRunning);
-      let wpLineClass = 'flow-wp'; if (isWpRunning) { if (isGridImport) wpLineClass = 'flow-red'; else wpLineClass = 'flow-green'; }
+      let wpLineClass = 'flow-wp'; if (isWpRunning) { if (isGridImport) wpLineClass = 'flow-red'; else wpLineClass = 'flow-green'; } 
       wpPathFlow.setAttribute('class', `path-flow ${wpLineClass} ${isWpRunning ? 'active' : ''}`);
     } else {
       this.content.querySelector('#ms-wp').classList.add('hidden'); this.content.querySelector('#p-bg-h-w').classList.add('hidden'); this.content.querySelector('#p-flow-h-w').classList.add('hidden');
