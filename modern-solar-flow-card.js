@@ -1,4 +1,4 @@
-const CARD_VERSION = '1.1.0';
+const CARD_VERSION = '1.1.1';
 
 console.info(
   `%c  MODERN-SOLAR-FLOW-CARD  \n%c  Version ${CARD_VERSION}    `,
@@ -202,6 +202,7 @@ class ModernSolarFlowCard extends HTMLElement {
         .status-red { border-color: var(--ms-color-red) !important; }
         .status-green { border-color: var(--ms-color-solar) !important; }
         .status-blue { border-color: var(--ms-color-blue) !important; }
+        .status-orange { border-color: var(--ms-color-orange) !important; }
         .status-wp { border-color: var(--ms-color-wp) !important; }
         
         .val { font-size: 20px; font-weight: 900; color: var(--ms-text-val); line-height: 1.1; }
@@ -233,7 +234,7 @@ class ModernSolarFlowCard extends HTMLElement {
         .stat-main { font-size: 15px; font-weight: 900; color: var(--ms-text-val); }
         .stat-sub { font-size: 10px; color: var(--ms-text-unit); display: flex; align-items: center; gap: 5px; }
         .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
-    `
+    `;
     
     const styleEl = this.content.querySelector('#ms-style');
     if (styleEl && styleEl.innerHTML !== css) {
@@ -273,11 +274,23 @@ class ModernSolarFlowCard extends HTMLElement {
     const isBattCharging = battPower < -THRESHOLD;
 
     let s_to_h = false, s_to_b = false, s_to_g = false, g_to_h = false, b_to_h = false, g_to_b = false, h_to_wp = false;
-    if (isSolarProducing) { s_to_h = true; if (isBattCharging) s_to_b = true; if (isGridExport) s_to_g = true; }
-    if (isGridImport) { g_to_h = true; if (isBattCharging) g_to_b = true; }
+    
+    if (isSolarProducing) {
+        s_to_h = true; 
+        if (isBattCharging) s_to_b = true; 
+        if (isGridExport) s_to_g = true;
+    }
+
+    if (isGridImport) {
+        g_to_h = true;
+        if (isBattCharging) {
+             g_to_b = true;
+        }
+    }
+
     if (isBattDischarging) b_to_h = true;
 
-    // WP Logic with Inversion
+    // WP Logic
     const wpEntity = ent(config.wp_entity);
     let wpStateText = 'AUS';
     let isWpRunning = false;
@@ -288,7 +301,7 @@ class ModernSolarFlowCard extends HTMLElement {
       const isOn = ['on', 'true', '1', 'running'].includes(s);
       
       isWpRunning = hasPower || isOn;
-      if (config.invert_wp) isWpRunning = !isWpRunning; // Flip it!
+      if (config.invert_wp) isWpRunning = !isWpRunning; 
 
       if (isWpRunning) {
           wpStateText = hasPower ? `${Math.round(Math.abs(n))} W` : 'EIN';
@@ -318,6 +331,23 @@ class ModernSolarFlowCard extends HTMLElement {
     gridEl.className = 'circle c-grid';
     if (isGridImport) gridEl.classList.add('status-red'); else if (isGridExport) gridEl.classList.add('status-green');
 
+    // Home Color Logic (Autarky)
+    const homeEl = this.content.querySelector('#ms-home');
+    homeEl.className = 'circle c-home'; // reset
+    if (homeVal > 0) {
+        // Grid Import is what reduces Autarky. 
+        // Real Grid Import = gridVal if gridVal > 0 (assuming Import is Positive)
+        const importVal = isGridImport ? gridVal : 0;
+        const selfConsumed = homeVal - importVal;
+        const autarky = (selfConsumed / homeVal) * 100;
+        
+        if (autarky >= 90) homeEl.classList.add('status-green');
+        else if (autarky >= 30) homeEl.classList.add('status-orange');
+        else homeEl.classList.add('status-red');
+    } else {
+        homeEl.classList.add('status-green'); // No consumption = Full Autarky ;)
+    }
+
     const wpEl = this.content.querySelector('#ms-wp');
     const wpPathBg = this.content.querySelector('#p-bg-h-w');
     const wpPathFlow = this.content.querySelector('#p-flow-h-w');
@@ -325,7 +355,7 @@ class ModernSolarFlowCard extends HTMLElement {
         wpEl.classList.remove('hidden'); wpPathBg.classList.remove('hidden'); wpPathFlow.classList.remove('hidden');
         setText('#val-wp', wpStateText); wpEl.classList.toggle('status-wp', isWpRunning);
         let wpLineClass = 'flow-wp';
-        if (isWpRunning) { if (isGridImport) wpLineClass = 'flow-red'; else if (isBattDischarging || isSolarProducing) wpLineClass = 'flow-green'; }
+        if (isWpRunning) { if (isGridImport) wpLineClass = 'flow-red'; else if (isBattDischarging || isSolarProducing) wpLineClass = 'flow-green'; } 
         wpPathFlow.setAttribute('class', `path-flow ${wpLineClass} ${isWpRunning ? 'active' : ''}`);
     } else {
         wpEl.classList.add('hidden'); wpPathBg.classList.add('hidden'); wpPathFlow.classList.add('hidden');
@@ -407,16 +437,8 @@ class ModernSolarFlowCardEditor extends HTMLElement {
     ];
     form.data = this._config; if (this._hass) form.hass = this._hass;
     form.computeLabel = (s) => s.label;
-    form.addEventListener('value-changed', (ev) => {
-      const config = ev.detail.value;
-      const event = new Event("config-changed", { bubbles: true, composed: true });
-      event.detail = { config: config };
-      this.dispatchEvent(event);
-      if (config.use_home_calc !== this._config.use_home_calc) {
-          this.innerHTML = ''; 
-          this._config = config;
-          this.render();
-      }
+    form.addEventListener('value-changed', (ev) => { const event = new Event("config-changed", { bubbles: true, composed: true }); event.detail = { config: ev.detail.value }; this.dispatchEvent(event); 
+        if (event.detail.config.use_home_calc !== this._config.use_home_calc) { this.innerHTML = ''; this._config = event.detail.config; this.render(); }
     });
     this.appendChild(form);
   }
